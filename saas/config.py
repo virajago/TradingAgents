@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     cf_ai_gateway_url: str = ""  # Cloudflare AI Gateway base URL
 
+    # Loops.so lifecycle emails
+    loops_api_key: str = ""
+
     # Finnhub
     finnhub_api_key: str = ""
 

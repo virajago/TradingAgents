@@ -1,4 +1,5 @@
 """Stripe webhook handler with idempotency."""
+import asyncio
 import logging
 
 import stripe
@@ -7,6 +8,7 @@ from supabase import Client
 
 from saas.api.deps import get_settings_dep, get_supabase
 from saas.config import PLAN_CREDITS, Settings
+from saas.email.lifecycle import track_event
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,19 @@ def _resolve_user_id(customer_id: str, supabase: Client) -> str | None:
     return None
 
 
+def _resolve_user_email(user_id: str, supabase: Client) -> str | None:
+    """Look up the email address for an internal user_id."""
+    result = (
+        supabase.table("profiles")
+        .select("email")
+        .eq("id", user_id)
+        .execute()
+    )
+    if result.data:
+        return result.data[0].get("email")
+    return None
+
+
 def _handle_subscription_created(
     sub: dict, supabase: Client, settings: Settings
 ) -> None:
@@ -123,6 +138,16 @@ def _handle_subscription_created(
             },
         ).execute()
 
+    # Fire Loops lifecycle event when a trial is created
+    if sub.get("status") == "trialing":
+        user_email = _resolve_user_email(user_id, supabase)
+        if user_email:
+            asyncio.create_task(track_event(user_email, "trial_started", {
+                "plan": plan,
+                "trial_credits": settings.stripe_trial_credits,
+                "trial_days": settings.stripe_trial_days,
+            }))
+
 
 def _handle_trial_started(
     sub: dict, supabase: Client, settings: Settings
@@ -144,9 +169,21 @@ def _handle_trial_started(
 
 
 def _handle_subscription_deleted(sub: dict, supabase: Client) -> None:
+    # Fetch user email before updating the profile
+    profile = (
+        supabase.table("profiles")
+        .select("id, email")
+        .eq("stripe_subscription_id", sub["id"])
+        .execute()
+    )
     supabase.table("profiles").update(
         {"subscription_status": "canceled"}
     ).eq("stripe_subscription_id", sub["id"]).execute()
+
+    if profile.data:
+        user_email = profile.data[0].get("email")
+        if user_email:
+            asyncio.create_task(track_event(user_email, "subscription_canceled", {}))
 
 
 def _handle_subscription_updated(
@@ -165,9 +202,26 @@ def _handle_subscription_updated(
     price_id = sub["items"]["data"][0]["price"]["id"]
     plan = _get_plan_from_price(price_id, settings)
 
+    # Fetch existing profile to detect trial → active conversion and get email
+    existing = (
+        supabase.table("profiles")
+        .select("id, email, subscription_status")
+        .eq("stripe_subscription_id", sub["id"])
+        .execute()
+    )
+
     supabase.table("profiles").update(
         {"subscription_status": new_status, "plan_name": plan}
     ).eq("stripe_subscription_id", sub["id"]).execute()
+
+    # Fire Loops event when trial converts to paid active subscription.
+    # Stripe signals this as: status="active" + trial_end is set (non-null) in the event.
+    if existing.data:
+        user_email = existing.data[0].get("email")
+        stripe_status = sub.get("status")
+        trial_end = sub.get("trial_end")
+        if user_email and stripe_status == "active" and trial_end:
+            asyncio.create_task(track_event(user_email, "subscription_active", {"plan": plan}))
 
 
 def _handle_payment_succeeded(

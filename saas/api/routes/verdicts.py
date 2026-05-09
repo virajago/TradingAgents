@@ -75,3 +75,88 @@ async def list_verdicts(
             "hit_rate_pct": hit_rate,
         },
     }
+
+
+def _is_correct_30d(v: dict) -> bool:
+    """
+    Correctness rules:
+    - BULLISH: stock 30d return > SPX 30d return + 2%
+    - BEARISH: stock 30d return < SPX 30d return - 2%
+    - NEUTRAL: abs(stock 30d return - SPX 30d return) < 5%
+    """
+    if not v.get("price_at_verdict") or not v.get("price_30d"):
+        return False
+    stock_return = (v["price_30d"] - v["price_at_verdict"]) / v["price_at_verdict"]
+    spx_return = 0.0
+    if v.get("spx_price_at_verdict") and v.get("spx_price_30d"):
+        spx_return = (v["spx_price_30d"] - v["spx_price_at_verdict"]) / v["spx_price_at_verdict"]
+
+    verdict = v.get("verdict", "NEUTRAL")
+    if verdict == "BULLISH":
+        return stock_return > spx_return + 0.02
+    elif verdict == "BEARISH":
+        return stock_return < spx_return - 0.02
+    else:  # NEUTRAL
+        return abs(stock_return - spx_return) < 0.05
+
+
+@router.get("/summary")
+async def verdict_summary(
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+) -> dict:
+    """
+    Full accuracy stats for all settled verdicts.
+
+    A bullish verdict is 'correct' if 30d return > SPX 30d return + 2%.
+    A bearish verdict is 'correct' if 30d return < SPX 30d return - 2%.
+    A neutral verdict is 'correct' if abs(30d return - SPX 30d return) < 5%.
+    """
+    result = (
+        supabase.table("verdicts")
+        .select("*")
+        .eq("user_id", user["id"])
+        .eq("settled_30d", True)
+        .execute()
+    )
+
+    verdicts = result.data or []
+    if not verdicts:
+        return {
+            "total_settled": 0,
+            "accuracy_30d": None,
+            "by_type": {},
+            "message": "Track record unlocks after 30 days of verdicts.",
+        }
+
+    by_type: dict[str, dict] = {
+        "BULLISH": {"total": 0, "correct": 0},
+        "BEARISH": {"total": 0, "correct": 0},
+        "NEUTRAL": {"total": 0, "correct": 0},
+    }
+    total_correct = 0
+
+    for v in verdicts:
+        vtype = v.get("verdict", "NEUTRAL")
+        if vtype not in by_type:
+            continue
+        by_type[vtype]["total"] += 1
+        if _is_correct_30d(v):
+            by_type[vtype]["correct"] += 1
+            total_correct += 1
+
+    accuracy = round(total_correct / len(verdicts) * 100, 1) if verdicts else None
+
+    return {
+        "total_settled": len(verdicts),
+        "total_correct": total_correct,
+        "accuracy_30d": accuracy,
+        "by_type": {
+            k: {
+                "total": bv["total"],
+                "correct": bv["correct"],
+                "accuracy": round(bv["correct"] / bv["total"] * 100, 1) if bv["total"] else None,
+            }
+            for k, bv in by_type.items()
+        },
+    }
