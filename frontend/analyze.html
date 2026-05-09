@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analyze a Stock — AI Analyst Weekly</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script type="module">
+import { prepare, layout } from 'https://esm.sh/@chenglou/pretext@0.5.4';
+window.Pretext = { prepare, layout };
+window.dispatchEvent(new Event('pretextReady'));
+</script>
+
+<style>
+  :root {
+    --bg:              #fafafa;
+    --surface:         #ffffff;
+    --surface-2:       #f4f4f4;
+    --surface-3:       #eeeeee;
+    --border:          #e0e0e0;
+    --text-primary:    #1a1a1a;
+    --text-secondary:  #4a4a4a;
+    --text-tertiary:   #8a8a8a;
+    --accent:          #1e4d8c;
+    --accent-hover:    #163a6b;
+    --accent-light:    #eef2f8;
+    --bullish:         #1a6b3c;
+    --bullish-bg:      #e8f5ee;
+    --bearish:         #8b1a1a;
+    --bearish-bg:      #fbeaea;
+    --neutral:         #4a4a4a;
+    --neutral-bg:      #f0f0f0;
+    --running:         #7a5c00;
+    --running-bg:      #fff8e6;
+
+    --font-display:    'Playfair Display', Georgia, serif;
+    --font-body:       'Source Serif 4', Georgia, serif;
+    --font-ui:         'DM Sans', system-ui, sans-serif;
+    --font-mono:       'JetBrains Mono', 'Courier New', monospace;
+
+    --sidebar-w:       240px;
+    --radius-card:     4px;
+    --radius-btn:      6px;
+    --radius-badge:    3px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+  }
+
+  /* ─── Sidebar ────────────────────────────────────────────────── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    flex-shrink: 0;
+  }
+
+  .sidebar-brand {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    display: block;
+  }
+
+  .sidebar-brand-name {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 12px 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 0;
+    transition: background 0.12s, color 0.12s;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+  .sidebar-item:hover { background: var(--surface-2); color: var(--text-primary); }
+  .sidebar-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+
+  .sidebar-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+  .sidebar-item.active .sidebar-icon { opacity: 1; }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  .sidebar-user {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .user-info { flex: 1; min-width: 0; }
+
+  .user-name {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-plan {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  /* ─── Main content ───────────────────────────────────────────── */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 48px;
+    min-width: 0;
+  }
+
+  .page-heading {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+
+  .page-subheading {
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+
+  /* ─── Analysis form ─────────────────────────────────────────── */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 28px;
+    margin-bottom: 32px;
+    max-width: 680px;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+  }
+
+  .form-group { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+  .form-label {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .form-input {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 12px 16px;
+    outline: none;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+  .form-input::placeholder { color: var(--text-tertiary); font-weight: 400; letter-spacing: 0.04em; }
+
+  .form-hint {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+
+  .portfolio-context {
+    background: var(--accent-light);
+    border: 1px solid #c5d5e8;
+    border-radius: var(--radius-card);
+    padding: 10px 14px;
+    margin-top: 12px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-analyze {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--surface);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 12px 28px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    height: 48px;
+  }
+  .btn-analyze:hover { background: var(--accent-hover); }
+
+  /* ─── States (controlled via class on #analysis-area) ──────── */
+  .state { display: none; }
+  #analysis-area.idle      .state.idle      { display: block; }
+  #analysis-area.loading   .state.loading   { display: block; }
+  #analysis-area.results   .state.results   { display: block; }
+  #analysis-area.error     .state.error     { display: block; }
+
+  /* ─── Analyst Briefing Room (loading state) ──────────────────── */
+  .briefing-room {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    max-width: 680px;
+  }
+
+  .briefing-header {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .briefing-title {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .briefing-elapsed {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    tabular-nums: 1;
+  }
+
+  .briefing-ticker-row {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .briefing-ticker {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.05em;
+  }
+
+  .briefing-progress-text {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    flex: 1;
+  }
+
+  .progress-bar-wrap {
+    background: var(--surface-2);
+    border-radius: 2px;
+    height: 3px;
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.8s ease;
+  }
+
+  .analyst-list { padding: 8px 0; }
+
+  .analyst-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--surface-2);
+    transition: background 0.2s;
+  }
+  .analyst-row:last-child { border-bottom: none; }
+  .analyst-row.running { background: var(--running-bg); }
+  .analyst-row.complete { background: var(--surface); }
+  .analyst-row.queued { opacity: 0.45; }
+
+  .analyst-status {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+  .analyst-row.complete .analyst-status { background: var(--bullish-bg); }
+  .analyst-row.running  .analyst-status { background: var(--running-bg); border: 2px solid var(--running); }
+  .analyst-row.queued   .analyst-status { background: var(--surface-2); }
+
+  .analyst-status-icon {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .analyst-info { flex: 1; min-width: 0; }
+
+  .analyst-name {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+
+  .analyst-badge {
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+  .analyst-badge.running { color: var(--running); background: var(--running-bg); }
+  .analyst-badge.complete { color: var(--bullish); background: var(--bullish-bg); }
+
+  .analyst-preview {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+  .analyst-preview.placeholder {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+
+  .briefing-note {
+    padding: 12px 20px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+
+  /* ─── Results state ─────────────────────────────────────────── */
+  .results-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    max-width: 680px;
+  }
+
+  .results-verdict-header {
+    padding: 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .results-ticker-info { display: flex; flex-direction: column; gap: 6px; }
+
+  .results-ticker {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.04em;
+  }
+
+  .results-company {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+
+  .verdict-badge-lg {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    border-radius: var(--radius-badge);
+  }
+  .verdict-badge-lg.bullish { color: var(--bullish); background: var(--bullish-bg); }
+
+  .portfolio-callout {
+    padding: 14px 24px;
+    background: var(--accent-light);
+    border-bottom: 1px solid #c5d5e8;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  .section-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+    text-align: left;
+    transition: background 0.12s;
+  }
+  .section-toggle:hover { background: var(--surface-2); }
+  .section-toggle:last-child { border-bottom: none; }
+
+  .section-toggle-name {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .section-toggle-preview {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-tertiary);
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .section-toggle-icon {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .decision-prompt {
+    padding: 20px 24px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+  }
+
+  .decision-prompt-text {
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+  }
+
+  .decision-prompt-note {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 10px;
+  }
+
+  .decision-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-decision {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: var(--radius-btn);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .btn-decision:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .btn-decision.buy { color: var(--bullish); border-color: var(--bullish); background: var(--bullish-bg); }
+  .btn-decision.sell { color: var(--bearish); border-color: var(--bearish); background: var(--bearish-bg); }
+
+  /* ─── Idle state ─────────────────────────────────────────────── */
+  .idle-hint {
+    max-width: 480px;
+    padding: 32px 0;
+  }
+  .idle-hint-heading {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+  }
+  .idle-hint-body {
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .idle-examples {
+    margin-top: 20px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .example-chip {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--accent-light);
+    border: 1px solid #c5d5e8;
+    border-radius: var(--radius-btn);
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .example-chip:hover { background: #dde8f5; }
+
+  /* ─── Responsive ─────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    body { flex-direction: column; }
+    .sidebar {
+      width: 100%;
+      height: auto;
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-nav { display: flex; padding: 8px 16px; overflow-x: auto; }
+    .sidebar-item { padding: 8px 12px; white-space: nowrap; flex-shrink: 0; }
+    .sidebar-user { display: none; }
+    .main { padding: 24px 20px; }
+  }
+
+  [data-pretext] { overflow: hidden; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar" aria-label="Application navigation">
+  <a class="sidebar-brand" href="/" aria-label="AI Analyst Weekly home">
+    <span class="sidebar-brand-name">AI Analyst Weekly</span>
+  </a>
+
+  <div class="sidebar-nav">
+    <a class="sidebar-item active" href="/analyze" aria-current="page">
+      <svg class="sidebar-icon" aria-hidden="true" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1a6 6 0 1 1 0 12A6 6 0 0 1 8 2zm0 3a1 1 0 0 0-1 1v2.586l-1.293 1.293a1 1 0 0 0 1.414 1.414L8.707 9.707A1 1 0 0 0 9 9V6a1 1 0 0 0-1-1z"/>
+      </svg>
+      Analyze
+    </a>
+    <a class="sidebar-item" href="/watchlist">
+      <svg class="sidebar-icon" aria-hidden="true" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12l-6-3-6 3V2z"/>
+      </svg>
+      Watchlist
+    </a>
+    <a class="sidebar-item" href="/portfolio">
+      <svg class="sidebar-icon" aria-hidden="true" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2 0v8h12V4H2z"/>
+      </svg>
+      Portfolio
+    </a>
+    <div class="sidebar-divider" aria-hidden="true"></div>
+    <a class="sidebar-item" href="/journal">
+      <svg class="sidebar-icon" aria-hidden="true" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h11A1.5 1.5 0 0 1 15 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 13.5v-11zM2.5 2a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-11zM4 5.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8zm0 2.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5z"/>
+      </svg>
+      Journal
+    </a>
+    <a class="sidebar-item" href="/settings">
+      <svg class="sidebar-icon" aria-hidden="true" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.892 3.433-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.892-1.64-.901-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+      </svg>
+      Settings
+    </a>
+  </div>
+
+  <div class="sidebar-user">
+    <div class="avatar" aria-hidden="true">V</div>
+    <div class="user-info">
+      <div class="user-name">Vijay</div>
+      <div class="user-plan">Pro · 7 analyses today</div>
+    </div>
+  </div>
+</nav>
+
+<!-- Main content -->
+<main class="main" id="main" aria-labelledby="page-heading">
+  <h1 class="page-heading" id="page-heading">Analyze a stock</h1>
+  <p class="page-subheading">Run 8 specialized AI analysts on any stock. Results in ~5 minutes.</p>
+
+  <!-- Form -->
+  <div class="form-card" role="search" aria-label="Stock analysis form">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="ticker-input">Ticker symbol</label>
+        <input
+          class="form-input"
+          id="ticker-input"
+          type="text"
+          placeholder="NVDA"
+          maxlength="8"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          aria-describedby="ticker-hint"
+        >
+        <span class="form-hint" id="ticker-hint">US-listed stocks and ETFs supported</span>
+      </div>
+      <button class="btn-analyze" id="analyze-btn" type="button" onclick="startAnalysis()">
+        Analyze →
+      </button>
+    </div>
+
+    <div class="portfolio-context" id="portfolio-context" aria-live="polite">
+      ↳ Portfolio context: You hold <strong>200 shares NVDA @ $118 avg cost</strong> — this analysis will be personalized
+    </div>
+  </div>
+
+  <!-- State machine -->
+  <div id="analysis-area" class="idle">
+
+    <!-- IDLE state -->
+    <div class="state idle">
+      <div class="idle-hint">
+        <h2 class="idle-hint-heading">What would you like to research?</h2>
+        <p class="idle-hint-body" data-pretext>
+          Enter any US ticker above. The analysis covers fundamental, sentiment, technical,
+          and news — then a bull researcher and bear researcher debate the position before
+          the portfolio manager issues a final verdict.
+        </p>
+        <div class="idle-examples" aria-label="Example tickers">
+          <button class="example-chip" onclick="setTicker('NVDA')">NVDA</button>
+          <button class="example-chip" onclick="setTicker('AAPL')">AAPL</button>
+          <button class="example-chip" onclick="setTicker('MSFT')">MSFT</button>
+          <button class="example-chip" onclick="setTicker('GOOGL')">GOOGL</button>
+          <button class="example-chip" onclick="setTicker('META')">META</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOADING state — Analyst Briefing Room -->
+    <div class="state loading" role="status" aria-label="Analysis in progress">
+      <div class="briefing-room">
+        <header class="briefing-header">
+          <span class="briefing-title">Analyst Briefing Room</span>
+          <span class="briefing-elapsed" id="elapsed-time" aria-live="off">0:00</span>
+        </header>
+
+        <div class="briefing-ticker-row">
+          <span class="briefing-ticker" id="briefing-ticker">NVDA</span>
+          <span class="briefing-progress-text" id="progress-label">Running fundamental analysis...</span>
+          <div class="progress-bar-wrap" aria-hidden="true">
+            <div class="progress-bar-fill" id="progress-bar" style="width: 12%"></div>
+          </div>
+        </div>
+
+        <div class="analyst-list" id="analyst-list" aria-label="Analyst status">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="briefing-note" id="briefing-note">
+          This analysis typically completes in 3–5 minutes.
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS state -->
+    <div class="state results">
+      <div class="results-card">
+        <div class="results-verdict-header">
+          <div class="results-ticker-info">
+            <span class="results-ticker" id="results-ticker">NVDA</span>
+            <span class="results-company">NVIDIA Corporation · Generated May 9, 2026 9:47am ET</span>
+          </div>
+          <span class="verdict-badge-lg bullish" role="status" aria-label="Bullish, High conviction, 87% agreement">
+            <span style="width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0" aria-hidden="true"></span>
+            BULLISH — High conviction (87%)
+          </span>
+        </div>
+
+        <div class="portfolio-callout" aria-label="Portfolio context">
+          ↳ You hold 200 shares @ $118 avg cost ($23,600 position) — 12% of your portfolio in NVDA.
+          This conviction level suggests maintaining or adding to the position.
+        </div>
+
+        <!-- Collapsible sections -->
+        <button class="section-toggle" aria-expanded="false" onclick="toggleSection(this)">
+          <div>
+            <div class="section-toggle-name">Fundamental</div>
+            <div class="section-toggle-preview">Q1 guidance raised; data center +312% YoY; FCF at $12.4B</div>
+          </div>
+          <span class="section-toggle-icon" aria-hidden="true">▸</span>
+        </button>
+
+        <button class="section-toggle" aria-expanded="false" onclick="toggleSection(this)">
+          <div>
+            <div class="section-toggle-name">Sentiment</div>
+            <div class="section-toggle-preview">Retail 78% bullish; institutional positioning +12% QoQ</div>
+          </div>
+          <span class="section-toggle-icon" aria-hidden="true">▸</span>
+        </button>
+
+        <button class="section-toggle" aria-expanded="false" onclick="toggleSection(this)">
+          <div>
+            <div class="section-toggle-name">Technical</div>
+            <div class="section-toggle-preview">Above 50 and 200-day MA; RSI 58; support $840; resistance $920</div>
+          </div>
+          <span class="section-toggle-icon" aria-hidden="true">▸</span>
+        </button>
+
+        <button class="section-toggle" aria-expanded="false" onclick="toggleSection(this)">
+          <div>
+            <div class="section-toggle-name">News &amp; events</div>
+            <div class="section-toggle-preview">GTC 2026 Blackwell ramp; no regulatory flags; 3 analyst upgrades</div>
+          </div>
+          <span class="section-toggle-icon" aria-hidden="true">▸</span>
+        </button>
+
+        <button class="section-toggle" aria-expanded="false" onclick="toggleSection(this)">
+          <div>
+            <div class="section-toggle-name">Debate — Bull vs. Bear</div>
+            <div class="section-toggle-preview">Bull: 3-year hardware lead. Bear: margin compression from AMD MI400</div>
+          </div>
+          <span class="section-toggle-icon" aria-hidden="true">▸</span>
+        </button>
+
+        <!-- Decision journal prompt -->
+        <div class="decision-prompt">
+          <p class="decision-prompt-text" data-pretext>
+            What will you do with this information?
+          </p>
+          <div class="decision-actions" role="group" aria-label="Investment decision options">
+            <button class="btn-decision buy" onclick="logDecision('buy')">Buy more</button>
+            <button class="btn-decision" onclick="logDecision('hold')">Hold position</button>
+            <button class="btn-decision sell" onclick="logDecision('sell')">Reduce / sell</button>
+            <button class="btn-decision" onclick="logDecision('wait')">Wait and watch</button>
+            <button class="btn-decision" onclick="logDecision('skip')">Skip — not trading</button>
+          </div>
+          <p class="decision-prompt-note">
+            Log your thinking — we'll track whether the analysis held up.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ERROR state -->
+    <div class="state error" role="alert">
+      <div class="form-card" style="border-color: var(--bearish); background: var(--bearish-bg);">
+        <p style="font-family:var(--font-ui);font-size:14px;font-weight:600;color:var(--bearish);margin-bottom:8px;">
+          Analysis timed out
+        </p>
+        <p style="font-family:var(--font-body);font-size:14px;color:var(--text-secondary);" data-pretext>
+          The analysis didn't complete in time. This sometimes happens when a data
+          provider is slow. Please try again — it usually succeeds on the second attempt.
+        </p>
+        <div style="margin-top:16px;display:flex;gap:10px;">
+          <button class="btn-analyze" onclick="startAnalysis()" style="background:var(--bearish);">Retry →</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /analysis-area -->
+</main>
+
+<script>
+// Demo state machine
+const AGENTS = [
+  { id: 'fundamental', name: 'Fundamental Analyst' },
+  { id: 'sentiment',   name: 'Sentiment Analyst' },
+  { id: 'news',        name: 'News Analyst' },
+  { id: 'technical',   name: 'Technical Analyst' },
+  { id: 'bull',        name: 'Bull Researcher' },
+  { id: 'bear',        name: 'Bear Researcher' },
+  { id: 'research_mgr',name: 'Research Manager' },
+  { id: 'portfolio',   name: 'Portfolio Manager' },
+];
+
+const AGENT_PREVIEWS = {
+  fundamental: 'Q1 guidance raised. Data center +312% YoY. FCF at $12.4B. Gross margin 78%.',
+  sentiment:   'Retail 78% bullish, institutional positioning increased 12% QoQ.',
+  news:        '3 analyst upgrades post-GTC. No regulatory flags. Blackwell ramp on track.',
+  technical:   'Above 50/200-day MA. RSI 58 — not overbought. Support $840, resistance $920.',
+  bull:        'Sovereign AI cycle just beginning. NVDA has 3-year hardware lead. No credible competitor.',
+  bear:        'Gross margin peaked at 78%. AMD Instinct MI400 threatens market share by Q4.',
+  research_mgr:'Consensus bullish. Bear concern noted but not decisive. Maintain or add.',
+  portfolio:   'BULLISH — High conviction (87%). Given your 12% portfolio weight, position is appropriately sized.',
+};
+
+let elapsedSeconds = 0;
+let elapsedInterval = null;
+let agentInterval = null;
+let currentAgentIdx = 0;
+
+function setTicker(ticker) {
+  document.getElementById('ticker-input').value = ticker;
+  document.getElementById('ticker-input').focus();
+}
+
+function setState(state) {
+  document.getElementById('analysis-area').className = state;
+}
+
+function renderAgents(completedCount, runningIdx) {
+  const list = document.getElementById('analyst-list');
+  list.innerHTML = AGENTS.map((agent, i) => {
+    let status = i < completedCount ? 'complete' : i === runningIdx ? 'running' : 'queued';
+    const preview = status === 'complete' ? AGENT_PREVIEWS[agent.id] : null;
+    return `
+      <div class="analyst-row ${status}">
+        <div class="analyst-status" aria-hidden="true">
+          <span class="analyst-status-icon">${status === 'complete' ? '✓' : status === 'running' ? '●' : ''}</span>
+        </div>
+        <div class="analyst-info">
+          <div class="analyst-name">
+            ${agent.name}
+            ${status !== 'queued' ? `<span class="analyst-badge ${status}">${status === 'running' ? 'Running' : 'Complete'}</span>` : ''}
+          </div>
+          ${preview
+            ? `<div class="analyst-preview">${preview}</div>`
+            : `<div class="analyst-preview placeholder">${status === 'running' ? 'Analyzing...' : 'Queued'}</div>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function startAnalysis() {
+  const ticker = (document.getElementById('ticker-input').value || 'NVDA').toUpperCase().trim();
+  if (!ticker) return;
+
+  document.getElementById('briefing-ticker').textContent = ticker;
+  document.getElementById('results-ticker').textContent = ticker;
+
+  setState('loading');
+  elapsedSeconds = 0;
+  currentAgentIdx = 0;
+
+  elapsedInterval = setInterval(() => {
+    elapsedSeconds++;
+    const m = Math.floor(elapsedSeconds / 60);
+    const s = elapsedSeconds % 60;
+    document.getElementById('elapsed-time').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (elapsedSeconds === 240) {
+      document.getElementById('briefing-note').textContent = 'Still working — complex analysis sometimes takes 6+ minutes.';
+    }
+  }, 1000);
+
+  // Simulate agents completing (demo: 1 agent every ~1.5s for demo purposes)
+  renderAgents(0, 0);
+  document.getElementById('progress-label').textContent = `Running ${AGENTS[0].name.toLowerCase()}...`;
+  document.getElementById('progress-bar').style.width = '12%';
+
+  agentInterval = setInterval(() => {
+    currentAgentIdx++;
+    if (currentAgentIdx >= AGENTS.length) {
+      clearInterval(agentInterval);
+      clearInterval(elapsedInterval);
+      setTimeout(() => setState('results'), 600);
+      return;
+    }
+    const pct = Math.round((currentAgentIdx / AGENTS.length) * 100);
+    document.getElementById('progress-bar').style.width = `${pct}%`;
+    document.getElementById('progress-label').textContent = `Running ${AGENTS[currentAgentIdx].name.toLowerCase()}...`;
+    renderAgents(currentAgentIdx, currentAgentIdx);
+  }, 1400); // Demo speed — production uses polling
+}
+
+function toggleSection(btn) {
+  const expanded = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', !expanded);
+  btn.querySelector('.section-toggle-icon').textContent = expanded ? '▸' : '▾';
+}
+
+function logDecision(action) {
+  alert(`Decision logged: "${action}" on NVDA. You'll see the outcome in your journal after 30 days.`);
+}
+
+// Auto-update portfolio context based on ticker input
+document.getElementById('ticker-input').addEventListener('input', (e) => {
+  const ctx = document.getElementById('portfolio-context');
+  const val = e.target.value.toUpperCase().trim();
+  if (val === 'NVDA') {
+    ctx.innerHTML = '↳ Portfolio context: You hold <strong>200 shares NVDA @ $118 avg cost</strong> — this analysis will be personalized';
+    ctx.style.display = 'flex';
+  } else if (val) {
+    ctx.innerHTML = `↳ <strong>${val}</strong> is not in your portfolio — add it after this analysis if you buy`;
+    ctx.style.display = 'flex';
+  } else {
+    ctx.style.display = 'none';
+  }
+});
+
+// Pretext
+async function initPretext() {
+  if (!window.Pretext) {
+    await new Promise(resolve => window.addEventListener('pretextReady', resolve, { once: true }));
+  }
+  await document.fonts.ready;
+  const { prepare, layout } = window.Pretext;
+  const prepared = new Map();
+
+  function measureEl(el) {
+    const text = el.textContent.trim();
+    if (!text) return;
+    const font = getComputedStyle(el).font;
+    try { prepared.set(el, prepare(text, font)); } catch(e) {}
+  }
+
+  document.querySelectorAll('[data-pretext]').forEach(measureEl);
+
+  function relayout() {
+    for (const [el, handle] of prepared) {
+      try {
+        const lh = parseFloat(getComputedStyle(el).lineHeight) || 24;
+        const { height } = layout(handle, el.clientWidth || 400, lh);
+        if (height > 0) el.style.minHeight = `${height}px`;
+      } catch(e) {}
+    }
+  }
+
+  relayout();
+  new ResizeObserver(() => relayout()).observe(document.body);
+
+  // Re-measure when state changes reveal new [data-pretext] elements
+  new MutationObserver(() => {
+    document.querySelectorAll('[data-pretext]').forEach(el => {
+      if (!prepared.has(el)) measureEl(el);
+    });
+    relayout();
+  }).observe(document.getElementById('analysis-area'), { subtree: true, childList: true, attributes: true });
+}
+
+initPretext().catch(() => {});
+</script>
+
+</body>
+</html>

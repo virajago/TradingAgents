@@ -13,7 +13,7 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
 
-  # Deploy to Cloud Run (us-east1 for low latency to US-East users)
+  # Deploy backend to Cloud Run (us-east1)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -31,5 +31,24 @@ steps:
       - '--max-instances=10'
       - '--set-env-vars=ENVIRONMENT=production'
 
+  # Deploy frontend to Cloudflare Pages
+  # Requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in Cloud Build substitutions
+  - name: 'node:20-slim'
+    entrypoint: sh
+    args:
+      - '-c'
+      - |
+        npm install -g wrangler && \
+        wrangler pages deploy frontend/ \
+          --project-name=ai-analyst-weekly \
+          --commit-dirty=true
+    env:
+      - 'CLOUDFLARE_API_TOKEN=$_CLOUDFLARE_API_TOKEN'
+      - 'CLOUDFLARE_ACCOUNT_ID=$_CLOUDFLARE_ACCOUNT_ID'
+
 images:
   - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
+
+substitutions:
+  _CLOUDFLARE_API_TOKEN: ''   # set in Cloud Build trigger settings
+  _CLOUDFLARE_ACCOUNT_ID: ''  # set in Cloud Build trigger settings

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watchlist — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f4; --border: #e0e0e0;
+  --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-tertiary: #8a8a8a;
+  --accent: #1e4d8c; --accent-hover: #163a6b; --accent-light: #eef2f8;
+  --bullish: #1a6b3c; --bullish-bg: #e8f5ee; --bearish: #8b1a1a; --bearish-bg: #fbeaea;
+  --neutral: #4a4a4a; --neutral-bg: #f0f0f0;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --sidebar-w: 240px; --radius: 4px; --radius-btn: 6px; --radius-badge: 3px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: var(--font-body); font-size: 16px; background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; display: flex; }
+
+.sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; flex-shrink: 0; }
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); text-decoration: none; display: block; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.sidebar-nav { flex: 1; padding: 12px 0; }
+.sidebar-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-family: var(--font-ui); font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; transition: background .12s, color .12s; }
+.sidebar-item:hover { background: var(--surface-2); color: var(--text-primary); }
+.sidebar-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+.sidebar-user { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: #fff; }
+.user-name { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.user-plan { font-family: var(--font-ui); font-size: 11px; color: var(--text-tertiary); }
+
+.main { flex: 1; overflow-y: auto; padding: 40px 48px; min-width: 0; }
+.page-heading { font-family: var(--font-display); font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+.page-subheading { font-family: var(--font-body); font-size: 16px; color: var(--text-secondary); margin-bottom: 32px; }
+
+.section-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 14px; }
+
+.verdict-badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px; border-radius: var(--radius-badge); }
+.verdict-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.verdict-badge.bullish { color: var(--bullish); background: var(--bullish-bg); }
+.verdict-badge.bearish { color: var(--bearish); background: var(--bearish-bg); }
+.verdict-badge.neutral { color: var(--neutral); background: var(--neutral-bg); }
+
+/* Add ticker form */
+.add-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 28px; display: flex; gap: 12px; align-items: flex-end; }
+.form-group { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+.form-input { font-family: var(--font-mono); font-size: 16px; font-weight: 500; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; outline: none; letter-spacing: .06em; text-transform: uppercase; transition: border-color .15s; }
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+.form-input::placeholder { color: var(--text-tertiary); font-weight: 400; }
+.btn-add { font-family: var(--font-ui); font-size: 14px; font-weight: 600; color: var(--surface); background: var(--accent); border: none; border-radius: var(--radius-btn); padding: 10px 20px; cursor: pointer; white-space: nowrap; height: 42px; transition: background .15s; }
+.btn-add:hover { background: var(--accent-hover); }
+
+/* Watchlist capacity bar */
+.capacity-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+.capacity-text { font-family: var(--font-ui); font-size: 13px; color: var(--text-secondary); flex: 1; }
+.capacity-track { flex: 1; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.capacity-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.capacity-count { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+/* Ticker table */
+.watchlist-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table-head { display: grid; grid-template-columns: 80px 1fr 120px 120px 80px 100px; gap: 0; padding: 10px 20px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.table-head-cell { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary); }
+.ticker-row { display: grid; grid-template-columns: 80px 1fr 120px 120px 80px 100px; gap: 0; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--surface-2); transition: background .12s; }
+.ticker-row:last-child { border-bottom: none; }
+.ticker-row:hover { background: var(--surface-2); }
+.ticker-symbol { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: var(--text-primary); letter-spacing: .04em; }
+.ticker-company { font-family: var(--font-body); font-size: 14px; color: var(--text-secondary); }
+.ticker-price { font-family: var(--font-mono); font-size: 14px; color: var(--text-primary); }
+.ticker-change { font-family: var(--font-mono); font-size: 13px; }
+.ticker-change.pos { color: var(--bullish); }
+.ticker-change.neg { color: var(--bearish); }
+.ticker-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.btn-sm { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: background .12s, color .12s; }
+.btn-sm:hover { background: var(--surface-2); }
+.btn-sm.danger:hover { border-color: var(--bearish); color: var(--bearish); background: var(--bearish-bg); }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <a class="sidebar-brand" href="/">AI Analyst Weekly</a>
+  <div class="sidebar-nav">
+    <a class="sidebar-item" href="/dashboard">⬚ Dashboard</a>
+    <a class="sidebar-item" href="/analyze">◷ Analyze</a>
+    <a class="sidebar-item active" href="/watchlist">◈ Watchlist</a>
+    <a class="sidebar-item" href="/portfolio">▭ Portfolio</a>
+    <div class="sidebar-divider"></div>
+    <a class="sidebar-item" href="/journal">≡ Journal</a>
+    <a class="sidebar-item" href="/settings">⚙ Settings</a>
+  </div>
+  <div class="sidebar-user">
+    <div class="avatar">V</div>
+    <div><div class="user-name">Vijay</div><div class="user-plan">Pro plan · Active</div></div>
+  </div>
+</nav>
+
+<main class="main">
+  <h1 class="page-heading">Watchlist</h1>
+  <p class="page-subheading">These stocks are analyzed every Sunday. Add up to 10.</p>
+
+  <!-- Add ticker -->
+  <div class="add-form">
+    <div class="form-group">
+      <label class="form-label" for="add-ticker">Add ticker</label>
+      <input class="form-input" id="add-ticker" type="text" placeholder="e.g. AMZN" maxlength="8" autocapitalize="characters" spellcheck="false">
+    </div>
+    <button class="btn-add" onclick="addTicker()">Add to watchlist</button>
+  </div>
+
+  <!-- Capacity -->
+  <div class="capacity-bar">
+    <span class="capacity-text">Slots used</span>
+    <div class="capacity-track"><div class="capacity-fill" style="width:80%"></div></div>
+    <span class="capacity-count" aria-label="8 of 10 slots used">8 / 10</span>
+  </div>
+
+  <!-- Table -->
+  <p class="section-label">Your watchlist</p>
+  <div class="watchlist-table" role="table" aria-label="Watchlist">
+
+    <div class="table-head" role="row">
+      <span class="table-head-cell" role="columnheader">Ticker</span>
+      <span class="table-head-cell" role="columnheader">Company</span>
+      <span class="table-head-cell" role="columnheader">Last price</span>
+      <span class="table-head-cell" role="columnheader">Week change</span>
+      <span class="table-head-cell" role="columnheader">Last verdict</span>
+      <span class="table-head-cell" role="columnheader"></span>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">NVDA</span>
+      <span class="ticker-company">NVIDIA Corporation</span>
+      <span class="ticker-price">$876.40</span>
+      <span class="ticker-change pos">+3.2%</span>
+      <span class="verdict-badge bullish"><span class="dot"></span>BULLISH</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('NVDA')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('NVDA')">Remove</button>
+      </div>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">AAPL</span>
+      <span class="ticker-company">Apple Inc.</span>
+      <span class="ticker-price">$196.20</span>
+      <span class="ticker-change neg">-1.1%</span>
+      <span class="verdict-badge neutral"><span class="dot"></span>NEUTRAL</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('AAPL')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('AAPL')">Remove</button>
+      </div>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">MSFT</span>
+      <span class="ticker-company">Microsoft Corporation</span>
+      <span class="ticker-price">$422.80</span>
+      <span class="ticker-change pos">+2.4%</span>
+      <span class="verdict-badge bullish"><span class="dot"></span>BULLISH</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('MSFT')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('MSFT')">Remove</button>
+      </div>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">GOOGL</span>
+      <span class="ticker-company">Alphabet Inc.</span>
+      <span class="ticker-price">$178.50</span>
+      <span class="ticker-change pos">+1.8%</span>
+      <span class="verdict-badge bullish"><span class="dot"></span>BULLISH</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('GOOGL')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('GOOGL')">Remove</button>
+      </div>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">META</span>
+      <span class="ticker-company">Meta Platforms Inc.</span>
+      <span class="ticker-price">$512.30</span>
+      <span class="ticker-change pos">+4.1%</span>
+      <span class="verdict-badge bullish"><span class="dot"></span>BULLISH</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('META')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('META')">Remove</button>
+      </div>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">AMZN</span>
+      <span class="ticker-company">Amazon.com Inc.</span>
+      <span class="ticker-price">$198.40</span>
+      <span class="ticker-change pos">+0.8%</span>
+      <span class="verdict-badge bullish"><span class="dot"></span>BULLISH</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('AMZN')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('AMZN')">Remove</button>
+      </div>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">TSM</span>
+      <span class="ticker-company">Taiwan Semiconductor Mfg</span>
+      <span class="ticker-price">$164.20</span>
+      <span class="ticker-change neg">-0.6%</span>
+      <span class="verdict-badge neutral"><span class="dot"></span>NEUTRAL</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('TSM')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('TSM')">Remove</button>
+      </div>
+    </div>
+
+    <div class="ticker-row" role="row">
+      <span class="ticker-symbol">AVGO</span>
+      <span class="ticker-company">Broadcom Inc.</span>
+      <span class="ticker-price">$1,680.00</span>
+      <span class="ticker-change pos">+2.2%</span>
+      <span class="verdict-badge bullish"><span class="dot"></span>BULLISH</span>
+      <div class="ticker-actions">
+        <button class="btn-sm" onclick="runAnalysis('AVGO')">Analyze</button>
+        <button class="btn-sm danger" onclick="removeTicker('AVGO')">Remove</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+function addTicker() {
+  const input = document.getElementById('add-ticker');
+  const ticker = input.value.toUpperCase().trim();
+  if (!ticker) return;
+  alert(`Added ${ticker} to watchlist. It will be included in Sunday's report.`);
+  input.value = '';
+}
+function removeTicker(t) {
+  if (confirm(`Remove ${t} from your watchlist?`)) alert(`${t} removed.`);
+}
+function runAnalysis(t) {
+  window.location.href = '/analyze?ticker=' + t;
+}
+</script>
+</body>
+</html>

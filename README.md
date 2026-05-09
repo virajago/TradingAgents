@@ -110,7 +110,7 @@ API live at `http://localhost:8000`. Interactive docs at `http://localhost:8000/
 
 ```bash
 # Serve all pages locally
-cd ~/.gstack/projects/virajago-TradingAgents/designs
+cd frontend
 python -m http.server 3000
 # Open http://localhost:3000
 ```
@@ -118,9 +118,13 @@ python -m http.server 3000
 Or open individual pages directly:
 
 ```bash
-open ~/.gstack/projects/virajago-TradingAgents/designs/landing-page-20260509/finalized.html
-open ~/.gstack/projects/virajago-TradingAgents/designs/dashboard-20260509/finalized.html
-open ~/.gstack/projects/virajago-TradingAgents/designs/analysis-page-20260509/finalized.html
+open frontend/index.html        # landing page
+open frontend/dashboard.html    # post-login dashboard
+open frontend/analyze.html      # on-demand analysis + Analyst Briefing Room
+open frontend/watchlist.html    # watchlist management
+open frontend/portfolio.html    # portfolio holdings
+open frontend/journal.html      # decision journal
+open frontend/track-record.html # AI verdict track record
 ```
 
 ### 6. Test an analysis run
@@ -287,12 +291,12 @@ gcloud scheduler jobs create http verdict-settler \
 ```bash
 npm install -g wrangler && wrangler login
 
-wrangler pages deploy \
-  ~/.gstack/projects/virajago-TradingAgents/designs \
-  --project-name ai-analyst-weekly
+wrangler pages deploy frontend/ --project-name ai-analyst-weekly
 ```
 
-Or connect your GitHub repo in the Cloudflare Pages dashboard.
+Or connect your GitHub repo in the Cloudflare Pages dashboard and set:
+- **Build output directory:** `frontend`
+- **Build command:** *(leave empty — no build step needed)*
 
 ### 6. Configure Stripe webhook
 

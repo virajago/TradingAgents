@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Analyst Weekly — Hedge-fund research. $39/month.</title>
+
+<!-- Google Fonts: Playfair Display + Source Serif 4 + DM Sans + JetBrains Mono -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Pretext — inline for production. CDN used here for portability. -->
+<script type="module">
+import { prepare, layout } from 'https://esm.sh/@chenglou/pretext@0.5.4';
+window.Pretext = { prepare, layout };
+window.dispatchEvent(new Event('pretextReady'));
+</script>
+
+<style>
+  /* ─── Design tokens (DESIGN.md) ─────────────────────────────── */
+  :root {
+    --bg:              #fafafa;
+    --surface:         #ffffff;
+    --surface-2:       #f4f4f4;
+    --border:          #e0e0e0;
+    --text-primary:    #1a1a1a;
+    --text-secondary:  #4a4a4a;
+    --text-tertiary:   #8a8a8a;
+    --accent:          #1e4d8c;
+    --accent-hover:    #163a6b;
+    --bullish:         #1a6b3c;
+    --bullish-bg:      #e8f5ee;
+    --bearish:         #8b1a1a;
+    --bearish-bg:      #fbeaea;
+    --neutral:         #4a4a4a;
+    --neutral-bg:      #f0f0f0;
+
+    --font-display:    'Playfair Display', Georgia, serif;
+    --font-body:       'Source Serif 4', Georgia, serif;
+    --font-ui:         'DM Sans', system-ui, sans-serif;
+    --font-mono:       'JetBrains Mono', 'Courier New', monospace;
+
+    --radius-card:     4px;
+    --radius-btn:      6px;
+    --radius-badge:    3px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { font-size: 16px; background: var(--bg); color: var(--text-primary); }
+
+  body {
+    font-family: var(--font-body);
+    font-size: 18px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── Nav ───────────────────────────────────────────────────── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 48px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-brand {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-link {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: var(--radius-btn);
+    transition: color 0.15s, background 0.15s;
+  }
+  .nav-link:hover { color: var(--text-primary); background: var(--surface-2); }
+
+  .nav-cta {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--surface);
+    background: var(--accent);
+    text-decoration: none;
+    padding: 9px 20px;
+    border-radius: var(--radius-btn);
+    transition: background 0.15s;
+  }
+  .nav-cta:hover { background: var(--accent-hover); }
+
+  /* ─── Hero ───────────────────────────────────────────────────── */
+  .hero {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 80px 48px 64px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+    min-height: calc(100vh - 60px);
+  }
+
+  .hero-left { display: flex; flex-direction: column; gap: 0; }
+
+  .hero-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  .hero-headline {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 4.5vw, 56px);
+    font-weight: 900;
+    line-height: 1.08;
+    color: var(--text-primary);
+    margin-bottom: 24px;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-subhead {
+    font-family: var(--font-body);
+    font-size: 19px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    max-width: 460px;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--surface);
+    background: var(--accent);
+    text-decoration: none;
+    padding: 14px 28px;
+    border-radius: var(--radius-btn);
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary .arrow { font-size: 16px; }
+
+  .btn-secondary {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .hero-meta {
+    margin-top: 28px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+
+  /* ─── Sample analysis card (hero right) ─────────────────────── */
+  .hero-right { position: relative; }
+
+  .analysis-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+
+  .analysis-card-header {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .analysis-card-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .analysis-card-date {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .analysis-stock-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .stock-ticker {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.04em;
+  }
+
+  .verdict-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: var(--radius-badge);
+  }
+
+  .verdict-badge.bullish {
+    color: var(--bullish);
+    background: var(--bullish-bg);
+  }
+  .verdict-badge.bearish {
+    color: var(--bearish);
+    background: var(--bearish-bg);
+  }
+  .verdict-badge.neutral {
+    color: var(--neutral);
+    background: var(--neutral-bg);
+  }
+
+  .verdict-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .analysis-summary {
+    padding: 16px 20px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .analysis-agents {
+    padding: 12px 20px;
+  }
+
+  .agent-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--surface-2);
+  }
+  .agent-row:last-child { border-bottom: none; }
+
+  .agent-name {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    width: 120px;
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+
+  .agent-finding {
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .analysis-gate {
+    padding: 16px 20px;
+    background: linear-gradient(to bottom, transparent, var(--surface));
+    text-align: center;
+    position: relative;
+    margin-top: -48px;
+  }
+
+  .analysis-gate-link {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-btn);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .analysis-gate-link:hover { border-color: var(--accent); color: var(--accent-hover); }
+
+  /* ─── How it works ───────────────────────────────────────────── */
+  .how-section {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 80px 48px;
+  }
+
+  .how-inner {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 48px;
+  }
+
+  .how-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 48px;
+  }
+
+  .how-step { display: flex; flex-direction: column; gap: 12px; }
+
+  .step-number {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+
+  .step-heading {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.25;
+  }
+
+  .step-body {
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  /* ─── Pricing ───────────────────────────────────────────────── */
+  .pricing-section {
+    border-top: 1px solid var(--border);
+    padding: 80px 48px;
+  }
+
+  .pricing-inner {
+    max-width: 560px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .pricing-price {
+    font-family: var(--font-display);
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .pricing-period {
+    font-family: var(--font-ui);
+    font-size: 16px;
+    color: var(--text-tertiary);
+    margin-bottom: 32px;
+  }
+
+  .pricing-features {
+    list-style: none;
+    margin-bottom: 40px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .pricing-feature {
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .feature-check {
+    color: var(--bullish);
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .pricing-disclaimer {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  /* ─── Footer ─────────────────────────────────────────────────── */
+  .footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 32px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-brand {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .footer-legal {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--text-tertiary);
+    max-width: 640px;
+    line-height: 1.5;
+    text-align: right;
+  }
+
+  /* ─── Responsive ─────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .nav { padding: 0 20px; }
+    .nav-link { display: none; }
+
+    .hero {
+      grid-template-columns: 1fr;
+      padding: 40px 20px 48px;
+      min-height: auto;
+      gap: 40px;
+    }
+    .hero-headline { font-size: 32px; }
+    .hero-subhead { font-size: 17px; max-width: 100%; }
+
+    .how-section { padding: 48px 20px; }
+    .how-steps { grid-template-columns: 1fr; gap: 32px; }
+
+    .pricing-section { padding: 48px 20px; }
+    .pricing-price { font-size: 48px; }
+
+    .footer { padding: 24px 20px; flex-direction: column; gap: 12px; text-align: center; }
+    .footer-legal { text-align: center; }
+  }
+
+  /* ─── Pretext heights (filled by JS) ────────────────────────── */
+  [data-pretext] { overflow: hidden; }
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav" aria-label="Site navigation">
+  <a class="nav-brand" href="/">AI Analyst Weekly</a>
+  <div class="nav-links">
+    <a class="nav-link" href="#how-it-works">How it works</a>
+    <a class="nav-link" href="#pricing">Pricing</a>
+    <a class="nav-link" href="/sign-in">Sign in</a>
+    <a class="nav-cta" href="/start">Start free week</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" aria-labelledby="hero-headline">
+  <div class="hero-left">
+    <p class="hero-eyebrow">Hedge-fund research, democratized</p>
+
+    <h1 class="hero-headline" id="hero-headline" data-pretext>
+      The research your broker charges $500/month for.<br>We charge $39.
+    </h1>
+
+    <p class="hero-subhead" data-pretext>
+      Every Sunday, 8 AI analysts debate every stock in your watchlist —
+      fundamental, sentiment, technical, and news. The moment anything
+      material changes, you'll know.
+    </p>
+
+    <div class="hero-actions">
+      <a class="btn-primary" href="/start">
+        Start your first week <span class="arrow" aria-hidden="true">→</span>
+      </a>
+      <button class="btn-secondary" onclick="document.querySelector('.analysis-card').scrollIntoView({behavior:'smooth'})">
+        See a sample analysis
+      </button>
+    </div>
+
+    <p class="hero-meta">Cancel anytime. Not investment advice.</p>
+  </div>
+
+  <!-- Live sample analysis card -->
+  <div class="hero-right">
+    <article class="analysis-card" aria-label="Sample analysis: NVDA">
+      <header class="analysis-card-header">
+        <span class="analysis-card-title">Sample analysis — NVDA</span>
+        <span class="analysis-card-date" aria-label="Week of May 5, 2026">Week of May 5, 2026</span>
+      </header>
+
+      <div class="analysis-stock-header">
+        <span class="stock-ticker" aria-label="NVIDIA Corporation">NVDA</span>
+        <span class="verdict-badge bullish" role="status" aria-label="Verdict: Bullish, High conviction, 87% agent agreement">
+          <span class="verdict-dot" aria-hidden="true"></span>
+          BULLISH — High conviction (87%)
+        </span>
+      </div>
+
+      <div class="analysis-summary" data-pretext>
+        Data center demand is accelerating, not plateauing. Despite margin compression concerns
+        from bear analysts, the H100 backlog and Blackwell ramp suggest sustained revenue growth
+        through Q3 2026. Technical structure is constructive — RSI at 58 leaves room to run.
+      </div>
+
+      <div class="analysis-agents" aria-label="Agent findings">
+        <div class="agent-row">
+          <span class="agent-name">Fundamental</span>
+          <span class="agent-finding" data-pretext>Q1 guidance raised. Free cash flow 42% YoY. Data center segment up 3x.</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-name">Sentiment</span>
+          <span class="agent-finding" data-pretext>Retail bullish (78%), institutional positioning increased 12% QoQ.</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-name">Technical</span>
+          <span class="agent-finding" data-pretext>Above 50 and 200-day MA. RSI 58. Support at $840. Resistance at $920.</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-name">Bull researcher</span>
+          <span class="agent-finding" data-pretext>Sovereign AI spending cycle is just beginning. NVDA has 3-year hardware lead.</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-name">Bear researcher</span>
+          <span class="agent-finding" data-pretext>Gross margin peaked at 78%. AMD Instinct MI400 threatens 15% market share by Q4...</span>
+        </div>
+      </div>
+
+      <div class="analysis-gate">
+        <a class="analysis-gate-link" href="/start">
+          See full analysis — 8 analysts, debate, verdict →
+        </a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="how-section" id="how-it-works" aria-labelledby="how-heading">
+  <div class="how-inner">
+    <p class="section-label" id="how-heading">How it works</p>
+    <div class="how-steps">
+      <div class="how-step">
+        <span class="step-number">01</span>
+        <h2 class="step-heading">Enter your watchlist</h2>
+        <p class="step-body" data-pretext>
+          Add the stocks you're watching — 5 to 10 tickers. Every analysis is
+          personalized to your actual portfolio position and cost basis.
+        </p>
+      </div>
+      <div class="how-step">
+        <span class="step-number">02</span>
+        <h2 class="step-heading">Get analyzed every Sunday</h2>
+        <p class="step-body" data-pretext>
+          8 specialized AI analysts debate each stock: fundamental, sentiment, news,
+          technical, bull researcher, bear researcher, risk manager, portfolio manager.
+          You get the synthesis, not the noise.
+        </p>
+      </div>
+      <div class="how-step">
+        <span class="step-number">03</span>
+        <h2 class="step-heading">Never miss a material event</h2>
+        <p class="step-body" data-pretext>
+          When NVDA drops 8% at 9:32am, you'll know in 60 seconds — not Sunday night.
+          Red flag alerts arrive the moment the event happens, with a rapid AI summary
+          and a link to run the full 8-analyst analysis.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing-section" id="pricing" aria-labelledby="pricing-heading">
+  <div class="pricing-inner">
+    <p class="section-label" id="pricing-heading">Pricing</p>
+    <p class="pricing-price" aria-label="$39 per month">$39</p>
+    <p class="pricing-period">per month — cancel anytime</p>
+
+    <ul class="pricing-features" aria-label="What's included">
+      <li class="pricing-feature">
+        <span class="feature-check" aria-hidden="true">✓</span>
+        <span>Weekly email digest for your full watchlist (up to 10 stocks)</span>
+      </li>
+      <li class="pricing-feature">
+        <span class="feature-check" aria-hidden="true">✓</span>
+        <span>On-demand analysis — run any stock anytime, results in ~5 minutes</span>
+      </li>
+      <li class="pricing-feature">
+        <span class="feature-check" aria-hidden="true">✓</span>
+        <span>Red flag alerts — immediate notification when material events fire</span>
+      </li>
+      <li class="pricing-feature">
+        <span class="feature-check" aria-hidden="true">✓</span>
+        <span>Portfolio-aware analysis — every report contextualized to your holdings</span>
+      </li>
+      <li class="pricing-feature">
+        <span class="feature-check" aria-hidden="true">✓</span>
+        <span>Decision journal — log and track your investment thinking over time</span>
+      </li>
+    </ul>
+
+    <a class="btn-primary" href="/start" style="display:inline-flex; justify-content:center; width:100%;">
+      Start your first week →
+    </a>
+
+    <p class="pricing-disclaimer">
+      AI Analyst Weekly provides educational research for informational purposes only.
+      Not investment advice. Past analysis accuracy does not guarantee future results.
+      Always consult a licensed financial advisor before making investment decisions.
+    </p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer" role="contentinfo">
+  <span class="footer-brand">AI Analyst Weekly</span>
+  <p class="footer-legal">
+    Educational research only. Not investment advice. Not affiliated with any financial institution.
+    © 2026 AI Analyst Weekly. <a href="/privacy" style="color:inherit">Privacy</a> ·
+    <a href="/terms" style="color:inherit">Terms</a> ·
+    <a href="/disclaimer" style="color:inherit">Disclaimer</a>
+  </p>
+</footer>
+
+<script>
+// Wait for Pretext to be ready (loaded via ES module above)
+async function initPretext() {
+  if (!window.Pretext) {
+    await new Promise(resolve => window.addEventListener('pretextReady', resolve, { once: true }));
+  }
+  await document.fonts.ready;
+
+  const { prepare, layout } = window.Pretext;
+  const elements = document.querySelectorAll('[data-pretext]');
+  const prepared = new Map();
+
+  for (const el of elements) {
+    const text = el.textContent.trim();
+    if (!text) continue;
+    const font = getComputedStyle(el).font;
+    try {
+      prepared.set(el, prepare(text, font));
+    } catch (e) {
+      // Graceful degradation — element keeps natural height
+    }
+  }
+
+  function relayout() {
+    for (const [el, handle] of prepared) {
+      try {
+        const lh = parseFloat(getComputedStyle(el).lineHeight) || 26;
+        const { height } = layout(handle, el.clientWidth || 400, lh);
+        if (height > 0) el.style.minHeight = `${height}px`;
+      } catch (e) {}
+    }
+  }
+
+  relayout();
+  new ResizeObserver(() => relayout()).observe(document.body);
+}
+
+initPretext().catch(() => {});
+</script>
+
+</body>
+</html>

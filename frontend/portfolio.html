@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f4; --border: #e0e0e0;
+  --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-tertiary: #8a8a8a;
+  --accent: #1e4d8c; --accent-hover: #163a6b; --accent-light: #eef2f8;
+  --bullish: #1a6b3c; --bullish-bg: #e8f5ee; --bearish: #8b1a1a; --bearish-bg: #fbeaea;
+  --neutral: #4a4a4a; --neutral-bg: #f0f0f0;
+  --font-display: 'Playfair Display', Georgia, serif; --font-body: 'Source Serif 4', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif; --font-mono: 'JetBrains Mono', monospace;
+  --sidebar-w: 240px; --radius: 4px; --radius-btn: 6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: var(--font-body); font-size: 16px; background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; display: flex; }
+.sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; flex-shrink: 0; }
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); text-decoration: none; display: block; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.sidebar-nav { flex: 1; padding: 12px 0; }
+.sidebar-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-family: var(--font-ui); font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; transition: background .12s, color .12s; }
+.sidebar-item:hover { background: var(--surface-2); color: var(--text-primary); }
+.sidebar-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+.sidebar-user { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: #fff; }
+.user-name { font-family: var(--font-ui); font-size: 13px; font-weight: 600; }
+.user-plan { font-family: var(--font-ui); font-size: 11px; color: var(--text-tertiary); }
+
+.main { flex: 1; overflow-y: auto; padding: 40px 48px; min-width: 0; }
+.page-heading { font-family: var(--font-display); font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+.page-subheading { font-family: var(--font-body); font-size: 16px; color: var(--text-secondary); margin-bottom: 32px; }
+.section-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 14px; }
+
+/* Summary bar */
+.summary-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 32px; }
+.summary-stat { background: var(--surface); padding: 18px 20px; }
+.summary-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
+.summary-value { font-family: var(--font-mono); font-size: 20px; font-weight: 500; color: var(--text-primary); }
+.summary-value.pos { color: var(--bullish); }
+.summary-value.neg { color: var(--bearish); }
+.summary-sub { font-family: var(--font-ui); font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+
+/* Sector exposure */
+.sector-bars { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 28px; }
+.sector-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.sector-row:last-child { margin-bottom: 0; }
+.sector-name { font-family: var(--font-ui); font-size: 13px; font-weight: 500; color: var(--text-secondary); width: 120px; flex-shrink: 0; }
+.sector-track { flex: 1; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.sector-fill { height: 100%; border-radius: 4px; }
+.sector-fill.tech { background: var(--accent); }
+.sector-fill.semi { background: #5b21b6; }
+.sector-fill.comm { background: #0e7490; }
+.sector-fill.cons { background: #854d0e; }
+.sector-fill.other { background: var(--text-tertiary); }
+.sector-pct { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); width: 36px; text-align: right; flex-shrink: 0; }
+.sector-warning { font-family: var(--font-ui); font-size: 11px; color: var(--bearish); font-weight: 600; }
+
+/* Holdings table */
+.holdings-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table-head { display: grid; grid-template-columns: 72px 1fr 100px 100px 90px 100px 110px 80px; padding: 10px 20px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.th { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+.th.r { text-align: right; }
+
+.holding-row { display: grid; grid-template-columns: 72px 1fr 100px 100px 90px 100px 110px 80px; align-items: center; padding: 13px 20px; border-bottom: 1px solid var(--surface-2); transition: background .12s; }
+.holding-row:last-child { border-bottom: none; }
+.holding-row:hover { background: var(--surface-2); }
+
+.h-ticker { font-family: var(--font-mono); font-size: 14px; font-weight: 500; letter-spacing: .04em; }
+.h-company { font-family: var(--font-body); font-size: 13px; color: var(--text-secondary); }
+.h-num { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); text-align: right; }
+.h-num.pos { color: var(--bullish); }
+.h-num.neg { color: var(--bearish); }
+
+.btn-edit { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: background .12s; }
+.btn-edit:hover { background: var(--surface-2); }
+
+/* Add holding form */
+.add-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px; }
+.add-form-heading { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+.form-row { display: flex; gap: 12px; align-items: flex-end; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+.form-input { font-family: var(--font-mono); font-size: 15px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px; outline: none; transition: border-color .15s; }
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+.form-hint { font-family: var(--font-ui); font-size: 11px; color: var(--text-tertiary); }
+.btn-primary { font-family: var(--font-ui); font-size: 14px; font-weight: 600; color: var(--surface); background: var(--accent); border: none; border-radius: var(--radius-btn); padding: 9px 20px; cursor: pointer; white-space: nowrap; height: 40px; transition: background .15s; }
+.btn-primary:hover { background: var(--accent-hover); }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <a class="sidebar-brand" href="/">AI Analyst Weekly</a>
+  <div class="sidebar-nav">
+    <a class="sidebar-item" href="/dashboard">⬚ Dashboard</a>
+    <a class="sidebar-item" href="/analyze">◷ Analyze</a>
+    <a class="sidebar-item" href="/watchlist">◈ Watchlist</a>
+    <a class="sidebar-item active" href="/portfolio">▭ Portfolio</a>
+    <div class="sidebar-divider"></div>
+    <a class="sidebar-item" href="/journal">≡ Journal</a>
+    <a class="sidebar-item" href="/settings">⚙ Settings</a>
+  </div>
+  <div class="sidebar-user">
+    <div class="avatar">V</div>
+    <div><div class="user-name">Vijay</div><div class="user-plan">Pro plan · Active</div></div>
+  </div>
+</nav>
+
+<main class="main">
+  <h1 class="page-heading">Portfolio</h1>
+  <p class="page-subheading">Your holdings. Every analysis is personalized to your actual position and cost basis.</p>
+
+  <!-- Summary -->
+  <div class="summary-bar" role="region" aria-label="Portfolio summary">
+    <div class="summary-stat">
+      <div class="summary-label">Total value</div>
+      <div class="summary-value">$284,720</div>
+      <div class="summary-sub">7 positions</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-label">Total invested</div>
+      <div class="summary-value">$246,270</div>
+      <div class="summary-sub">Cost basis</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-label">Unrealized P&amp;L</div>
+      <div class="summary-value pos">+$38,450</div>
+      <div class="summary-sub">+15.6%</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-label">Largest position</div>
+      <div class="summary-value">NVDA</div>
+      <div class="summary-sub">$175,280 · 61.6%</div>
+    </div>
+  </div>
+
+  <!-- Sector exposure -->
+  <p class="section-label">Sector exposure</p>
+  <div class="sector-bars">
+    <div class="sector-row">
+      <span class="sector-name">Technology</span>
+      <div class="sector-track"><div class="sector-fill tech" style="width:62%"></div></div>
+      <span class="sector-pct">62%</span>
+      <span class="sector-warning">⚠ Concentrated</span>
+    </div>
+    <div class="sector-row">
+      <span class="sector-name">Semiconductors</span>
+      <div class="sector-track"><div class="sector-fill semi" style="width:20%"></div></div>
+      <span class="sector-pct">20%</span>
+    </div>
+    <div class="sector-row">
+      <span class="sector-name">Communication</span>
+      <div class="sector-track"><div class="sector-fill comm" style="width:12%"></div></div>
+      <span class="sector-pct">12%</span>
+    </div>
+    <div class="sector-row">
+      <span class="sector-name">Consumer</span>
+      <div class="sector-track"><div class="sector-fill cons" style="width:6%"></div></div>
+      <span class="sector-pct">6%</span>
+    </div>
+  </div>
+
+  <!-- Holdings table -->
+  <p class="section-label">Holdings</p>
+  <div class="holdings-table" role="table" aria-label="Portfolio holdings">
+    <div class="table-head" role="row">
+      <span class="th">Ticker</span>
+      <span class="th">Company</span>
+      <span class="th r">Shares</span>
+      <span class="th r">Avg cost</span>
+      <span class="th r">Curr price</span>
+      <span class="th r">Value</span>
+      <span class="th r">Unrealized</span>
+      <span class="th r"></span>
+    </div>
+
+    <div class="holding-row" role="row">
+      <span class="h-ticker">NVDA</span>
+      <span class="h-company">NVIDIA Corporation</span>
+      <span class="h-num">200</span>
+      <span class="h-num">$118.00</span>
+      <span class="h-num">$876.40</span>
+      <span class="h-num">$175,280</span>
+      <span class="h-num pos">+$151,680</span>
+      <button class="btn-edit" onclick="editHolding('NVDA')">Edit</button>
+    </div>
+
+    <div class="holding-row" role="row">
+      <span class="h-ticker">MSFT</span>
+      <span class="h-company">Microsoft Corporation</span>
+      <span class="h-num">50</span>
+      <span class="h-num">$380.00</span>
+      <span class="h-num">$422.80</span>
+      <span class="h-num">$21,140</span>
+      <span class="h-num pos">+$2,140</span>
+      <button class="btn-edit" onclick="editHolding('MSFT')">Edit</button>
+    </div>
+
+    <div class="holding-row" role="row">
+      <span class="h-ticker">AAPL</span>
+      <span class="h-company">Apple Inc.</span>
+      <span class="h-num">100</span>
+      <span class="h-num">$185.00</span>
+      <span class="h-num">$196.20</span>
+      <span class="h-num">$19,620</span>
+      <span class="h-num pos">+$1,120</span>
+      <button class="btn-edit" onclick="editHolding('AAPL')">Edit</button>
+    </div>
+
+    <div class="holding-row" role="row">
+      <span class="h-ticker">META</span>
+      <span class="h-company">Meta Platforms Inc.</span>
+      <span class="h-num">30</span>
+      <span class="h-num">$480.00</span>
+      <span class="h-num">$512.30</span>
+      <span class="h-num">$15,369</span>
+      <span class="h-num pos">+$969</span>
+      <button class="btn-edit" onclick="editHolding('META')">Edit</button>
+    </div>
+
+    <div class="holding-row" role="row">
+      <span class="h-ticker">GOOGL</span>
+      <span class="h-company">Alphabet Inc.</span>
+      <span class="h-num">80</span>
+      <span class="h-num">$170.00</span>
+      <span class="h-num">$178.50</span>
+      <span class="h-num">$14,280</span>
+      <span class="h-num pos">+$680</span>
+      <button class="btn-edit" onclick="editHolding('GOOGL')">Edit</button>
+    </div>
+
+    <div class="holding-row" role="row">
+      <span class="h-ticker">TSM</span>
+      <span class="h-company">Taiwan Semiconductor</span>
+      <span class="h-num">60</span>
+      <span class="h-num">$162.00</span>
+      <span class="h-num">$164.20</span>
+      <span class="h-num">$9,852</span>
+      <span class="h-num pos">+$132</span>
+      <button class="btn-edit" onclick="editHolding('TSM')">Edit</button>
+    </div>
+
+    <div class="holding-row" role="row">
+      <span class="h-ticker">AMZN</span>
+      <span class="h-company">Amazon.com Inc.</span>
+      <span class="h-num">45</span>
+      <span class="h-num">$202.00</span>
+      <span class="h-num">$198.40</span>
+      <span class="h-num">$8,928</span>
+      <span class="h-num neg">-$162</span>
+      <button class="btn-edit" onclick="editHolding('AMZN')">Edit</button>
+    </div>
+  </div>
+
+  <!-- Add holding -->
+  <div style="margin-top:24px;">
+    <p class="section-label">Add holding</p>
+    <div class="add-form">
+      <div class="add-form-heading">Enter the ticker, number of shares, and your average cost per share.</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="h-ticker">Ticker</label>
+          <input class="form-input" id="h-ticker" type="text" placeholder="AMZN" style="width:90px;" maxlength="8" autocapitalize="characters">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-shares">Shares</label>
+          <input class="form-input" id="h-shares" type="number" placeholder="100" style="width:100px;" min="1" step="1">
+          <span class="form-hint">Whole shares only</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-cost">Avg cost (USD)</label>
+          <input class="form-input" id="h-cost" type="number" placeholder="198.40" style="width:120px;" min="0.01" step="0.01">
+          <span class="form-hint">Blended average if multiple tranches</span>
+        </div>
+        <button class="btn-primary" onclick="addHolding()">Add holding</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+function editHolding(ticker) {
+  alert(`Editing ${ticker} — enter new shares and avg cost in the form below.`);
+}
+function addHolding() {
+  const t = document.getElementById('h-ticker').value.toUpperCase().trim();
+  const s = document.getElementById('h-shares').value;
+  const c = document.getElementById('h-cost').value;
+  if (!t || !s || !c) { alert('Please fill in all three fields.'); return; }
+  if (!Number.isInteger(+s) || +s < 1) { alert('Shares must be a positive whole number.'); return; }
+  alert(`Added: ${s} shares of ${t} at $${c} avg cost. Future analyses will use this context.`);
+}
+</script>
+</body>
+</html>
