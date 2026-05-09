@@ -25,6 +25,7 @@ A production SaaS built on the TradingAgents engine. Delivers hedge-fund-quality
 ### Prerequisites
 
 - Python 3.11+
+- [uv](https://docs.astral.sh/uv/) — fast Python package manager (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - [Supabase CLI](https://supabase.com/docs/guides/cli) (`brew install supabase/tap/supabase`)
 - At least one LLM API key (Anthropic or Google recommended)
 
@@ -34,11 +35,22 @@ A production SaaS built on the TradingAgents engine. Delivers hedge-fund-quality
 git clone https://github.com/virajago/TradingAgents.git
 cd TradingAgents
 
-python -m venv .venv
+# Create and activate virtual environment
+uv venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-pip install .                      # core TradingAgents engine
-pip install -r saas/requirements.txt  # SaaS dependencies
+# Install core engine + SaaS dependencies
+uv pip install .
+uv pip install -r saas/requirements.txt
+```
+
+**Without uv** (standard pip):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install .
+pip install -r saas/requirements.txt
 ```
 
 ### 2. Configure environment
@@ -316,13 +328,25 @@ curl -X POST https://<cloud-run-url>/internal/batch/run \
 
 ### Installation
 
+**With uv (recommended):**
+
+```bash
+git clone https://github.com/virajago/TradingAgents.git
+cd TradingAgents
+
+uv venv --python 3.13
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+uv pip install .
+```
+
+**With conda:**
+
 ```bash
 git clone https://github.com/virajago/TradingAgents.git
 cd TradingAgents
 
 conda create -n tradingagents python=3.13
 conda activate tradingagents
-
 pip install .
 ```
 
