@@ -50,7 +50,7 @@
 
 <div align="center">
 
-🚀 [TradingAgents](#tradingagents-framework) | ⚡ [Installation & CLI](#installation-and-cli) | 🎬 [Demo](https://www.youtube.com/watch?v=90gr5lwjIho) | 📦 [Package Usage](#tradingagents-package) | 🤝 [Contributing](#contributing) | 📄 [Citation](#citation)
+🚀 [TradingAgents](#tradingagents-framework) | 🌐 [SaaS Product](#ai-analyst-weekly--saas-product) | ⚡ [CLI](#installation-and-cli) | 🎬 [Demo](https://www.youtube.com/watch?v=90gr5lwjIho) | 📦 [Package Usage](#tradingagents-package) | 🤝 [Contributing](#contributing) | 📄 [Citation](#citation)
 
 </div>
 
@@ -97,6 +97,337 @@ Our framework decomposes complex trading tasks into specialized roles. This ensu
 <p align="center">
   <img src="assets/risk.png" width="70%" style="display: inline-block; margin: 0 2%;">
 </p>
+
+## AI Analyst Weekly — SaaS Product
+
+This repository also contains **AI Analyst Weekly**, a production SaaS built on the TradingAgents engine. It delivers hedge-fund-quality stock research to retail investors via weekly email digests, on-demand analysis, and real-time red flag alerts.
+
+**Stack:** FastAPI · Supabase (Postgres + Auth) · Cloud Run · Cloudflare Pages · Stripe · Resend · Loops.so
+
+Jump to: [Local dev (web app)](#local-development-web-app) | [Deploy to production](#production-deployment) | [CLI usage](#installation-and-cli)
+
+---
+
+## Local Development (Web App)
+
+### Prerequisites
+
+- Python 3.11+
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (`brew install supabase/tap/supabase`)
+- API keys: at minimum one LLM provider (Anthropic or Google recommended)
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/virajago/TradingAgents.git
+cd TradingAgents
+
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+pip install .                      # core TradingAgents engine
+pip install -r saas/requirements.txt  # SaaS dependencies
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` — minimum required for local dev:
+
+```bash
+# Supabase local (filled in automatically after step 3)
+SUPABASE_URL=http://localhost:54321
+SUPABASE_ANON_KEY=<from supabase start output>
+SUPABASE_SERVICE_ROLE_KEY=<from supabase start output>
+SUPABASE_JWT_SECRET=<from supabase start output>
+DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
+
+# One LLM provider (choose one)
+ANTHROPIC_API_KEY=sk-ant-...       # Claude — best for on-demand analysis
+GOOGLE_API_KEY=AIza...             # Gemini — best for weekly batch (cheaper)
+
+# Stripe test mode
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PRO=price_...
+STRIPE_PRICE_UNLIMITED=price_...
+
+# Resend (use test mode locally)
+RESEND_API_KEY=re_...
+
+# Internal cron protection
+INTERNAL_API_SECRET=any-random-string-for-local-dev
+
+ENVIRONMENT=development
+```
+
+### 3. Start Supabase locally
+
+```bash
+supabase start                     # starts Postgres + Auth on localhost:54321
+supabase db push saas/db/schema.sql  # apply schema + RLS policies
+```
+
+The `supabase start` output prints your local `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_JWT_SECRET`. Copy them into `.env`.
+
+### 4. Start the API server
+
+```bash
+uvicorn saas.api.main:app --reload --port 8000
+```
+
+API is now live at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+
+### 5. Open the web app
+
+The frontend is static HTML. Open any page directly in your browser:
+
+```bash
+open ~/.gstack/projects/virajago-TradingAgents/designs/landing-page-20260509/finalized.html
+open ~/.gstack/projects/virajago-TradingAgents/designs/dashboard-20260509/finalized.html
+open ~/.gstack/projects/virajago-TradingAgents/designs/analysis-page-20260509/finalized.html
+```
+
+Or serve all pages locally:
+
+```bash
+cd ~/.gstack/projects/virajago-TradingAgents/designs
+python -m http.server 3000
+# then open http://localhost:3000
+```
+
+### 6. Test an analysis run
+
+```bash
+# Trigger an on-demand analysis via the API
+curl -X POST http://localhost:8000/analyze \
+  -H "Authorization: Bearer <your-supabase-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"ticker": "NVDA"}'
+
+# Poll for status
+curl http://localhost:8000/analyze/<task_id>/status \
+  -H "Authorization: Bearer <your-supabase-jwt>"
+```
+
+Or run a batch analysis directly:
+
+```bash
+curl -X POST http://localhost:8000/internal/batch/run \
+  -H "x-internal-secret: any-random-string-for-local-dev"
+```
+
+### 7. Test Stripe webhooks locally
+
+```bash
+# Install Stripe CLI
+brew install stripe/stripe-cli/stripe
+
+stripe listen --forward-to localhost:8000/webhooks/stripe
+# Stripe CLI prints a webhook secret — add it to .env as STRIPE_WEBHOOK_SECRET
+```
+
+---
+
+## Production Deployment
+
+### Architecture
+
+```
+Cloudflare Pages   → Static HTML frontend (9 pages)
+Cloudflare CDN     → SSL, DDoS, asset caching
+Cloudflare AI GW   → LLM API proxy (caching + analytics)
+
+Cloud Run          → FastAPI backend + workers
+Cloud Scheduler    → Sunday 8pm ET batch + daily verdict settlement
+                   → Every 5 min alert monitor
+
+Supabase           → Postgres + Auth + RLS + connection pooling
+Stripe             → Billing (credit pack subscriptions)
+Resend             → Email delivery (digest + alerts)
+Finnhub            → Real-time market event monitoring
+Loops.so           → Lifecycle email sequences
+```
+
+### 1. Create a Supabase project
+
+1. Go to [supabase.com](https://supabase.com) and create a new project in **us-east-1** (AWS region, closest to Cloud Run `us-east1`)
+2. In the SQL Editor, run the full schema:
+
+```bash
+# Copy and paste the contents of saas/db/schema.sql into Supabase SQL Editor
+# Or use the Supabase CLI against your remote project:
+supabase db push saas/db/schema.sql --db-url "postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
+```
+
+3. Copy your project's **URL**, **anon key**, **service role key**, **JWT secret**, and **database URL (pooler/Supavisor)** from Project Settings → API.
+
+### 2. Create Stripe products
+
+In the Stripe dashboard (or CLI), create three products:
+
+```bash
+stripe products create --name "Starter" --description "100 credits/month"
+stripe prices create --product <starter-id> --unit-amount 1900 --currency usd --recurring-interval month
+
+stripe products create --name "Pro" --description "300 credits/month"
+stripe prices create --product <pro-id> --unit-amount 3900 --currency usd --recurring-interval month
+
+stripe products create --name "Unlimited" --description "Unlimited credits/month"
+stripe prices create --product <unlimited-id> --unit-amount 7900 --currency usd --recurring-interval month
+```
+
+Copy the three `price_...` IDs. Enable 7-day free trials in the Stripe dashboard per price.
+
+### 3. Configure Cloud Run environment
+
+Set all secrets in GCP Secret Manager (recommended) or as Cloud Run environment variables:
+
+```bash
+gcloud run services update ai-analyst-weekly \
+  --region us-east1 \
+  --set-env-vars "ENVIRONMENT=production" \
+  --set-env-vars "SUPABASE_URL=https://<ref>.supabase.co" \
+  --set-env-vars "SUPABASE_ANON_KEY=..." \
+  --set-env-vars "SUPABASE_SERVICE_ROLE_KEY=..." \
+  --set-env-vars "SUPABASE_JWT_SECRET=..." \
+  --set-env-vars "DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres" \
+  --set-env-vars "ANTHROPIC_API_KEY=..." \
+  --set-env-vars "GOOGLE_API_KEY=..." \
+  --set-env-vars "STRIPE_SECRET_KEY=sk_live_..." \
+  --set-env-vars "STRIPE_WEBHOOK_SECRET=whsec_..." \
+  --set-env-vars "STRIPE_PRICE_STARTER=price_..." \
+  --set-env-vars "STRIPE_PRICE_PRO=price_..." \
+  --set-env-vars "STRIPE_PRICE_UNLIMITED=price_..." \
+  --set-env-vars "RESEND_API_KEY=re_..." \
+  --set-env-vars "RESEND_FROM_EMAIL=weekly@yourdomain.com" \
+  --set-env-vars "FINNHUB_API_KEY=..." \
+  --set-env-vars "LOOPS_API_KEY=..." \
+  --set-env-vars "INTERNAL_API_SECRET=<long-random-string>" \
+  --set-env-vars "MAX_CONCURRENT_ANALYSES=20"
+```
+
+### 4. Deploy to Cloud Run
+
+**Option A — Cloud Build (CI/CD, recommended):**
+
+```bash
+# One-time: connect your repo in GCP Cloud Build → Triggers
+# Every push to main auto-deploys via cloudbuild.yaml
+
+gcloud builds submit --config cloudbuild.yaml
+```
+
+**Option B — Direct deploy:**
+
+```bash
+gcloud run deploy ai-analyst-weekly \
+  --source . \
+  --region us-east1 \
+  --allow-unauthenticated \
+  --memory 2Gi \
+  --cpu 2 \
+  --min-instances 1 \
+  --max-instances 10 \
+  --concurrency 80
+```
+
+After deploy, copy the Cloud Run service URL (`https://ai-analyst-weekly-xxxx-ue.a.run.app`).
+
+### 5. Set up Cloud Scheduler jobs
+
+```bash
+# Sunday 8pm ET weekly digest
+gcloud scheduler jobs create http weekly-digest \
+  --location us-east1 \
+  --schedule "0 0 * * MON" \
+  --uri "https://<cloud-run-url>/internal/batch/run" \
+  --http-method POST \
+  --headers "x-internal-secret=<INTERNAL_API_SECRET>"
+
+# Every 5 minutes — alert monitor
+gcloud scheduler jobs create http alert-monitor \
+  --location us-east1 \
+  --schedule "*/5 * * * *" \
+  --uri "https://<cloud-run-url>/internal/alerts/check" \
+  --http-method POST \
+  --headers "x-internal-secret=<INTERNAL_API_SECRET>"
+
+# Daily verdict settlement
+gcloud scheduler jobs create http verdict-settler \
+  --location us-east1 \
+  --schedule "0 10 * * *" \
+  --uri "https://<cloud-run-url>/internal/verdicts/settle" \
+  --http-method POST \
+  --headers "x-internal-secret=<INTERNAL_API_SECRET>"
+```
+
+### 6. Deploy the frontend to Cloudflare Pages
+
+```bash
+# Install Wrangler
+npm install -g wrangler
+wrangler login
+
+# Deploy the HTML pages
+wrangler pages deploy ~/.gstack/projects/virajago-TradingAgents/designs \
+  --project-name ai-analyst-weekly
+```
+
+Or connect your GitHub repo in the Cloudflare Pages dashboard and set the build output directory to the designs folder.
+
+### 7. Configure Stripe webhook
+
+In Stripe Dashboard → Webhooks, add endpoint:
+```
+https://<cloud-run-url>/webhooks/stripe
+```
+
+Select events:
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.payment_succeeded`
+- `invoice.payment_failed`
+
+Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+### 8. Configure Cloudflare AI Gateway (optional, recommended)
+
+1. In Cloudflare Dashboard → AI Gateway, create a gateway named `ai-analyst-weekly`
+2. Copy the gateway URL: `https://gateway.ai.cloudflare.com/v1/<account-id>/ai-analyst-weekly`
+3. Set `CF_AI_GATEWAY_URL` in Cloud Run environment variables
+4. Update `saas/config.py` to route LLM calls through the gateway URL
+
+### Email domain warming
+
+**Start this immediately** — bulk sending from a new domain requires 4-6 weeks of warming before reliable inbox delivery.
+
+```bash
+# Add your domain to Resend and configure DNS records:
+# SPF:   TXT @ "v=spf1 include:amazonses.com ~all"
+# DKIM:  provided by Resend during domain setup
+# DMARC: TXT _dmarc "v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com"
+
+# Send 5-10 test emails/day for 4 weeks before the first batch send
+```
+
+### Verify production deployment
+
+```bash
+# Health check
+curl https://<cloud-run-url>/health
+
+# Trigger a test batch (sends emails to all active subscribers)
+curl -X POST https://<cloud-run-url>/internal/batch/run \
+  -H "x-internal-secret: <INTERNAL_API_SECRET>"
+```
+
+---
 
 ## Installation and CLI
 
@@ -194,11 +525,18 @@ To use TradingAgents inside your code, you can import the `tradingagents` module
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
 
+# CLI / research usage
 ta = TradingAgentsGraph(debug=True, config=DEFAULT_CONFIG.copy())
-
-# forward propagate
 _, decision = ta.propagate("NVDA", "2026-01-15")
 print(decision)
+
+# SaaS / multi-user usage (pass user_id for isolated checkpoints and memory)
+ta = TradingAgentsGraph(
+    config=DEFAULT_CONFIG.copy(),
+    user_id="user_abc123",          # scopes checkpoints and memory log per user
+    supabase_client=supabase,       # enables per-user Postgres memory log
+)
+_, decision = ta.propagate("NVDA", "2026-01-15")
 ```
 
 You can also adjust the default configuration to set your own choice of LLMs, debate rounds, etc.
