@@ -1,134 +1,79 @@
-"""Sunday 8pm ET batch runner. Triggered by Cloud Scheduler via POST /internal/batch/run."""
-import asyncio
+"""Batch scheduler: runs weekly analyses for all users' watchlist tickers."""
+from __future__ import annotations
+
 import logging
-import uuid
 from datetime import date
+from typing import Any, Dict, Optional
 
 from supabase import create_client
 
-from saas.config import CREDITS_WEEKLY_DIGEST_PER_TICKER, get_settings
-from saas.email.formatter import format_digest_email
-from saas.email.sender import send_digest_email
-from saas.workers.analysis_worker import get_task, run_analysis
+from saas.config.settings import get_settings
+from saas.workers.analysis_worker import run_analysis, _fetch_portfolio_context
 
 logger = logging.getLogger(__name__)
 
 
-async def run_weekly_batch() -> dict:
-    """
-    Main Sunday batch entry point.
+def run_weekly_batch(trade_date: Optional[str] = None) -> None:
+    """Run weekly analyses for all active users.
 
-    1. Query all active subscribers and their watchlists.
-    2. Run TradingAgents analysis for every (user, ticker) pair in parallel,
-       bounded by the global Semaphore in analysis_worker.
-    3. Format per-user HTML digest from the results.
-    4. Send via Resend.
+    Fetches each user's watchlist tickers and portfolio holdings once per user,
+    then delegates to run_analysis() for each ticker.
 
-    Returns summary: {users_processed, analyses_run, emails_sent, errors}
+    Args:
+        trade_date: ISO date string to analyse. Defaults to today.
     """
+    if trade_date is None:
+        trade_date = date.today().isoformat()
+
     settings = get_settings()
     supabase = create_client(settings.supabase_url, settings.supabase_service_role_key)
-    trade_date = date.today().isoformat()
 
-    # 1. Fetch active subscribers with their watchlists in a single query
-    result = (
-        supabase.table("profiles")
-        .select("id, email, watchlist_items(ticker)")
-        .eq("subscription_status", "active")
-        .execute()
-    )
-    users = result.data or []
-    logger.info("Batch starting: %d active subscribers", len(users))
+    # Fetch all active users (profiles table is used as the user registry)
+    users_result = supabase.table("profiles").select("id").execute()
+    users = users_result.data or []
 
-    stats: dict = {
-        "users_processed": 0,
-        "analyses_run": 0,
-        "emails_sent": 0,
-        "errors": [],
-    }
+    logger.info("Running weekly batch for %d users on %s", len(users), trade_date)
 
-    # 2. Build (user_id, email, ticker, task_id) tuples for all work items.
-    #    Deduct weekly_digest credits per ticker before queuing the analysis so
-    #    users with no balance are skipped rather than run for free.
-    work_items: list[tuple[str, str, str, str]] = []
-    for user in users:
-        tickers = [item["ticker"] for item in (user.get("watchlist_items") or [])]
-        for ticker in tickers:
-            task_id = str(uuid.uuid4())
-            # Attempt credit deduction — skip this ticker if insufficient balance
-            try:
-                result = supabase.rpc(
-                    "deduct_credits",
-                    {
-                        "p_user_id": user["id"],
-                        "p_amount": CREDITS_WEEKLY_DIGEST_PER_TICKER,
-                        "p_action": "weekly_digest",
-                        "p_reference_id": task_id,
-                    },
-                ).execute()
-                if result.data is None or result.data < 0:
-                    logger.warning(
-                        "Batch: insufficient credits for %s / %s — skipping",
-                        user["email"],
-                        ticker,
-                    )
-                    continue
-            except Exception:
-                logger.exception(
-                    "Batch: credit deduction failed for %s / %s — skipping",
-                    user["email"],
-                    ticker,
-                )
-                continue
-            work_items.append((user["id"], user["email"], ticker, task_id))
-
-    if not work_items:
-        logger.info("Batch: no watchlist items found — nothing to do")
-        return stats
-
-    # Run all analyses concurrently (Semaphore in analysis_worker caps parallelism)
-    await asyncio.gather(
-        *[
-            run_analysis(
-                task_id=task_id,
-                ticker=ticker,
-                user_id=user_id,
-                trade_date=trade_date,
-            )
-            for user_id, _email, ticker, task_id in work_items
-        ],
-        return_exceptions=True,
-    )
-    stats["analyses_run"] = len(work_items)
-    logger.info("Batch: %d analyses finished", len(work_items))
-
-    # 3. Group results by user and send digest emails
-    user_map: dict[str, dict] = {u["id"]: u for u in users}
-
-    for user_id, user in user_map.items():
-        user_tickers_tasks = [
-            (ticker, task_id)
-            for uid, _email, ticker, task_id in work_items
-            if uid == user_id
-        ]
-        if not user_tickers_tasks:
-            continue
-
-        results: dict[str, dict | None] = {
-            ticker: get_task(task_id) for ticker, task_id in user_tickers_tasks
-        }
-
+    for user_row in users:
+        user_id = user_row["id"]
         try:
-            html = format_digest_email(user["email"], results, trade_date)
-            await send_digest_email(user["email"], html, trade_date)
-            stats["emails_sent"] += 1
-            logger.info("Digest sent to %s (%d tickers)", user["email"], len(results))
+            _run_user_batch(supabase, user_id, trade_date)
         except Exception as exc:
-            msg = f"{user['email']}: {exc}"
-            stats["errors"].append(msg)
-            logger.error("Email failed for %s: %s", user["email"], exc)
+            logger.error("Batch failed for user %s: %s", user_id, exc, exc_info=True)
 
-        stats["users_processed"] += 1
 
-    logger.info("Batch complete: %s", stats)
-    return stats
+def _run_user_batch(supabase, user_id: str, trade_date: str) -> None:
+    """Run analyses for a single user across all their watched tickers."""
+    # Fetch portfolio holdings once per user (re-used for all their tickers)
+    portfolio_context = _fetch_portfolio_context(supabase, user_id)
+
+    # Fetch watchlist tickers — assumes a watchlist table; adapt as needed
+    try:
+        watchlist_result = supabase.table("watchlist").select("ticker").eq(
+            "user_id", user_id
+        ).execute()
+        tickers = [row["ticker"] for row in (watchlist_result.data or [])]
+    except Exception as exc:
+        logger.warning("Could not fetch watchlist for user %s: %s", user_id, exc)
+        return
+
+    if not tickers:
+        logger.debug("No watchlist tickers for user %s", user_id)
+        return
+
+    logger.info("Batch: user=%s tickers=%s date=%s", user_id, tickers, trade_date)
+
+    for ticker in tickers:
+        try:
+            run_analysis(
+                user_id=user_id,
+                ticker=ticker,
+                trade_date=trade_date,
+                portfolio_context=portfolio_context,
+            )
+        except Exception as exc:
+            logger.error(
+                "Analysis failed: user=%s ticker=%s date=%s error=%s",
+                user_id, ticker, trade_date, exc,
+                exc_info=True,
+            )

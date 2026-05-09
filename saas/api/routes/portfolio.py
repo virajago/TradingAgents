@@ -1,6 +1,7 @@
-"""Portfolio holdings CRUD."""
+"""Portfolio holdings CRUD. All data is user-scoped via RLS."""
+from __future__ import annotations
+
 import logging
-import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
@@ -12,120 +13,82 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_TICKER_RE = re.compile(r"^[A-Z0-9]{1,8}$")
 
-
-def _validate_ticker(raw: str) -> str:
-    ticker = raw.strip().upper()
-    if not _TICKER_RE.match(ticker):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid ticker: must be 1-8 uppercase alphanumeric characters",
-        )
-    return ticker
-
-
-class HoldingUpsertRequest(BaseModel):
+class HoldingCreate(BaseModel):
     ticker: str
     shares: int
     avg_cost_usd: float
 
+    @field_validator("ticker")
+    @classmethod
+    def ticker_uppercase(cls, v: str) -> str:
+        v = v.upper().strip()
+        if not v.isalpha() or len(v) > 8:
+            raise ValueError("Ticker must be 1-8 letters")
+        return v
+
     @field_validator("shares")
     @classmethod
     def shares_positive(cls, v: int) -> int:
-        if v <= 0:
-            raise ValueError("shares must be positive")
+        if v < 1:
+            raise ValueError("Shares must be a positive integer")
         return v
 
     @field_validator("avg_cost_usd")
     @classmethod
     def cost_positive(cls, v: float) -> float:
         if v <= 0:
-            raise ValueError("avg_cost_usd must be positive")
-        return v
+            raise ValueError("Average cost must be positive")
+        return round(v, 2)
+
+
+class HoldingUpdate(BaseModel):
+    shares: int | None = None
+    avg_cost_usd: float | None = None
 
 
 @router.get("/holdings")
 async def list_holdings(
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
-) -> dict:
-    """Return all portfolio holdings for the authenticated user."""
-    result = (
-        supabase.table("portfolio_holdings")
-        .select("id, ticker, shares, avg_cost_usd, added_at, updated_at")
-        .eq("user_id", user["id"])
-        .order("ticker", desc=False)
-        .execute()
-    )
-    return {"holdings": result.data or []}
+):
+    result = supabase.table("portfolio_holdings").select("*").eq(
+        "user_id", user["id"]
+    ).order("added_at").execute()
+    return result.data or []
 
 
 @router.post("/holdings", status_code=status.HTTP_201_CREATED)
 async def add_holding(
-    body: HoldingUpsertRequest,
+    body: HoldingCreate,
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
-) -> dict:
-    """Add a new holding. Returns 409 if the ticker already exists (use PUT to update)."""
-    ticker = _validate_ticker(body.ticker)
-
-    try:
-        result = (
-            supabase.table("portfolio_holdings")
-            .insert(
-                {
-                    "user_id": user["id"],
-                    "ticker": ticker,
-                    "shares": body.shares,
-                    "avg_cost_usd": body.avg_cost_usd,
-                }
-            )
-            .execute()
-        )
-    except Exception as exc:
-        if "duplicate" in str(exc).lower() or "unique" in str(exc).lower():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"{ticker} already in portfolio — use PUT to update",
-            )
-        logger.exception("Failed to add holding %s for %s", ticker, user["id"])
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add holding",
-        )
-
-    return result.data[0]
+):
+    result = supabase.table("portfolio_holdings").upsert({
+        "user_id": user["id"],
+        "ticker": body.ticker,
+        "shares": body.shares,
+        "avg_cost_usd": body.avg_cost_usd,
+    }, on_conflict="user_id,ticker").execute()
+    return result.data[0] if result.data else {}
 
 
 @router.put("/holdings/{ticker}")
 async def update_holding(
     ticker: str,
-    body: HoldingUpsertRequest,
+    body: HoldingUpdate,
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
-) -> dict:
-    """Update shares and average cost for an existing holding."""
-    ticker = _validate_ticker(ticker)
-
-    result = (
-        supabase.table("portfolio_holdings")
-        .update(
-            {
-                "shares": body.shares,
-                "avg_cost_usd": body.avg_cost_usd,
-                "updated_at": "now()",
-            }
-        )
-        .eq("user_id", user["id"])
-        .eq("ticker", ticker)
-        .execute()
-    )
+):
+    ticker = ticker.upper()
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    result = supabase.table("portfolio_holdings").update(updates).eq(
+        "user_id", user["id"]
+    ).eq("ticker", ticker).execute()
     if not result.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"{ticker} not found in portfolio",
-        )
+        raise HTTPException(status_code=404, detail=f"{ticker} not in portfolio")
     return result.data[0]
 
 
@@ -134,19 +97,26 @@ async def delete_holding(
     ticker: str,
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
-) -> None:
-    """Remove a holding from the portfolio."""
-    ticker = _validate_ticker(ticker)
+):
+    ticker = ticker.upper()
+    supabase.table("portfolio_holdings").delete().eq(
+        "user_id", user["id"]
+    ).eq("ticker", ticker).execute()
 
-    result = (
-        supabase.table("portfolio_holdings")
-        .delete()
-        .eq("user_id", user["id"])
-        .eq("ticker", ticker)
-        .execute()
-    )
-    if not result.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"{ticker} not found in portfolio",
-        )
+
+@router.get("/summary")
+async def portfolio_summary(
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """Return holdings with cost-basis summary. Current prices not fetched (Phase 1B enhancement)."""
+    result = supabase.table("portfolio_holdings").select("*").eq(
+        "user_id", user["id"]
+    ).execute()
+    holdings = result.data or []
+    total_invested = sum(h["shares"] * float(h["avg_cost_usd"]) for h in holdings)
+    return {
+        "holdings": holdings,
+        "total_invested_usd": round(total_invested, 2),
+        "position_count": len(holdings),
+    }

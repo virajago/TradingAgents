@@ -28,6 +28,10 @@ DEFAULT_CONFIG = {
     # Checkpoint/resume: when True, LangGraph saves state after each node
     # so a crashed run can resume from the last successful step.
     "checkpoint_enabled": False,
+    # Portfolio context: when set, agents receive position-aware instructions.
+    # Shape: {TICKER: {"shares": int, "avg_cost_usd": float}}
+    # Set by analysis_worker.py (SaaS path); None for CLI use.
+    "portfolio_context": None,
     # Output language for analyst reports and final decision
     # Internal agent debate stays in English for reasoning quality
     "output_language": "English",

@@ -57,6 +57,7 @@ class TradingAgentsGraph:
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
         user_id: str = "cli",
+        supabase_client=None,
     ):
         """Initialize the trading agents graph and components.
 
@@ -65,7 +66,9 @@ class TradingAgentsGraph:
             debug: Whether to run in debug mode
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
-            user_id: User identifier for scoping checkpoints in multi-user deployments
+            user_id: User identifier for scoping checkpoints and memory log in SaaS contexts
+            supabase_client: If provided, uses PostgresMemoryLog instead of the
+                file-based TradingMemoryLog (SaaS path). CLI callers leave this None.
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
@@ -102,7 +105,12 @@ class TradingAgentsGraph:
         self.deep_thinking_llm = deep_client.get_llm()
         self.quick_thinking_llm = quick_client.get_llm()
         
-        self.memory_log = TradingMemoryLog(self.config)
+        # Memory log: Postgres for SaaS, file-based for CLI
+        if supabase_client is not None:
+            from tradingagents.agents.utils.postgres_memory import PostgresMemoryLog
+            self.memory_log = PostgresMemoryLog(user_id=user_id, supabase_client=supabase_client)
+        else:
+            self.memory_log = TradingMemoryLog(self.config)
 
         # Create tool nodes
         self.tool_nodes = self._create_tool_nodes()
@@ -265,6 +273,24 @@ class TradingAgentsGraph:
         if updates:
             self.memory_log.batch_update_with_outcomes(updates)
 
+    def _build_portfolio_context_str(self, ticker: str) -> str:
+        """Build a portfolio context string for the given ticker, if holdings exist."""
+        ctx = self.config.get("portfolio_context")
+        if not ctx or ticker.upper() not in ctx:
+            return ""
+        holding = ctx[ticker.upper()]
+        shares = holding.get("shares", 0)
+        avg_cost = holding.get("avg_cost_usd", 0)
+        total_invested = shares * avg_cost
+        return (
+            f"\n\nPORTFOLIO CONTEXT: The investor currently holds {shares} shares of "
+            f"{ticker.upper()} with an average cost of ${avg_cost:.2f}/share "
+            f"(total invested: ${total_invested:,.2f}). "
+            f"Factor this position size and cost basis into your analysis — "
+            f"consider whether the current price represents a gain or loss relative to their entry, "
+            f"and whether their existing exposure warrants adding, holding, or reducing."
+        )
+
     def propagate(self, company_name, trade_date):
         """Run the trading agents graph for a company on a specific date.
 
@@ -306,10 +332,16 @@ class TradingAgentsGraph:
 
     def _run_graph(self, company_name, trade_date):
         """Execute the graph and write the resulting state to disk and memory log."""
-        # Initialize state — inject memory log context for PM.
+        # Initialize state — inject memory log context and portfolio context for PM.
         past_context = self.memory_log.get_past_context(company_name)
+        portfolio_context_str = self._build_portfolio_context_str(company_name)
+
+        # Combine past memory context with portfolio position context.
+        # portfolio_context_str is empty string when no holding exists (safe concat).
+        combined_context = past_context + portfolio_context_str
+
         init_agent_state = self.propagator.create_initial_state(
-            company_name, trade_date, past_context=past_context
+            company_name, trade_date, past_context=combined_context
         )
         args = self.propagator.get_graph_args()
 
