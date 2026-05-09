@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from saas.api.routes import analyze, credits, watchlist, portfolio, journal, verdicts, webhooks, internal
+from saas.api.routes import analyze, auth, credits, watchlist, portfolio, journal, verdicts, webhooks, internal
 from saas.config import get_settings
 
 settings = get_settings()
@@ -25,12 +25,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://aianalystweekly.com", "http://localhost:3000"],
+    allow_origins=[
+        "https://aianalystweekly.com",
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "null",  # file:// origin when opening HTML directly in browser
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(analyze.router, prefix="/analyze", tags=["analysis"])
 app.include_router(credits.router, prefix="/credits", tags=["credits"])
 app.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])

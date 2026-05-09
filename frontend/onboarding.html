@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Set up your account — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:              #fafafa;
+    --surface:         #ffffff;
+    --surface-2:       #f4f4f4;
+    --border:          #e0e0e0;
+    --text-primary:    #1a1a1a;
+    --text-secondary:  #4a4a4a;
+    --text-tertiary:   #8a8a8a;
+    --accent:          #1e4d8c;
+    --accent-hover:    #163a6b;
+    --accent-light:    #eef2f8;
+    --bullish:         #1a6b3c;
+    --bullish-bg:      #e8f5ee;
+    --bearish:         #8b1a1a;
+    --bearish-bg:      #fbeaea;
+    --font-display:    'Playfair Display', Georgia, serif;
+    --font-body:       'Source Serif 4', Georgia, serif;
+    --font-ui:         'DM Sans', system-ui, sans-serif;
+    --font-mono:       'JetBrains Mono', monospace;
+    --radius:          4px;
+    --radius-btn:      6px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-body);
+    font-size: 16px;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Nav */
+  .nav {
+    padding: 20px 48px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-brand {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+  .nav-step {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 3px;
+    background: var(--surface-2);
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+
+  /* Main */
+  .main {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 56px 20px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  /* Steps */
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .step-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .step-heading {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    line-height: 1.15;
+  }
+  .step-subheading {
+    font-family: var(--font-body);
+    font-size: 17px;
+    color: var(--text-secondary);
+    margin-bottom: 36px;
+    line-height: 1.6;
+  }
+
+  /* Ticker input */
+  .ticker-input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .ticker-input {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    outline: none;
+    flex: 1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .ticker-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+  .ticker-input::placeholder { color: var(--text-tertiary); font-weight: 400; letter-spacing: 0.04em; }
+
+  .btn-add {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--surface);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 12px 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-add:hover { background: var(--accent-hover); }
+
+  /* Ticker chips */
+  .ticker-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    min-height: 36px;
+  }
+  .ticker-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-light);
+    border: 1px solid #c5d5e8;
+    border-radius: var(--radius-btn);
+    padding: 6px 12px;
+  }
+  .ticker-chip-remove {
+    cursor: pointer;
+    color: var(--text-tertiary);
+    font-size: 16px;
+    line-height: 1;
+    background: none;
+    border: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+  }
+  .ticker-chip-remove:hover { color: var(--bearish); }
+
+  .ticker-hint {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin-bottom: 28px;
+  }
+
+  /* Suggested tickers */
+  .suggested-label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+  }
+  .suggested-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 36px;
+  }
+  .suggested-chip {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-btn);
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .suggested-chip:hover { background: var(--accent-light); color: var(--accent); border-color: #c5d5e8; }
+
+  /* Portfolio step */
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .form-label {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .form-row { display: flex; gap: 10px; }
+  .form-input {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: var(--text-primary);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+  .form-hint { font-family: var(--font-ui); font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+
+  .holdings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 24px;
+  }
+  .holding-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .holding-ticker { font-family: var(--font-mono); font-size: 14px; font-weight: 500; }
+  .holding-detail { font-family: var(--font-ui); font-size: 13px; color: var(--text-tertiary); }
+  .holding-remove { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 16px; padding: 0; }
+  .holding-remove:hover { color: var(--bearish); }
+
+  /* Action buttons */
+  .btn-primary {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--surface);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .btn-skip {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    padding: 12px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .btn-skip:hover { color: var(--text-secondary); }
+
+  /* Confirmation step */
+  .confirm-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--bullish-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 24px;
+  }
+  .next-report-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .next-report-label {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+  }
+  .next-report-date {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .next-report-sub {
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .watchlist-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-brand" href="index.html">AI Analyst Weekly</a>
+  <span class="nav-step" id="nav-step">Step 1 of 3</span>
+</nav>
+
+<div class="progress-bar">
+  <div class="progress-fill" id="progress-fill" style="width: 33%"></div>
+</div>
+
+<main class="main">
+  <div class="container">
+
+    <!-- Step 1: Watchlist -->
+    <div class="step active" id="step-1">
+      <p class="step-eyebrow">Step 1 of 3</p>
+      <h1 class="step-heading">Which stocks do you want to watch?</h1>
+      <p class="step-subheading">Add 3 to 10 tickers. Every Sunday, our 8 AI analysts will research each one and send you a full report.</p>
+
+      <div class="ticker-input-row">
+        <input class="ticker-input" id="ticker-input" type="text" placeholder="e.g. NVDA" maxlength="8" autocapitalize="characters" spellcheck="false">
+        <button class="btn-add" onclick="addTicker()">Add</button>
+      </div>
+
+      <div class="ticker-chips" id="ticker-chips"></div>
+      <p class="ticker-hint" id="ticker-hint">Add at least 3 stocks to continue.</p>
+
+      <p class="suggested-label">Popular picks</p>
+      <div class="suggested-chips">
+        <button class="suggested-chip" onclick="addSuggested('NVDA')">NVDA</button>
+        <button class="suggested-chip" onclick="addSuggested('AAPL')">AAPL</button>
+        <button class="suggested-chip" onclick="addSuggested('MSFT')">MSFT</button>
+        <button class="suggested-chip" onclick="addSuggested('GOOGL')">GOOGL</button>
+        <button class="suggested-chip" onclick="addSuggested('META')">META</button>
+        <button class="suggested-chip" onclick="addSuggested('AMZN')">AMZN</button>
+        <button class="suggested-chip" onclick="addSuggested('TSLA')">TSLA</button>
+        <button class="suggested-chip" onclick="addSuggested('AVGO')">AVGO</button>
+      </div>
+
+      <button class="btn-primary" id="step1-btn" onclick="goToStep2()" disabled>
+        Continue →
+      </button>
+    </div>
+
+    <!-- Step 2: Portfolio (optional) -->
+    <div class="step" id="step-2">
+      <p class="step-eyebrow">Step 2 of 3</p>
+      <h1 class="step-heading">What do you already hold?</h1>
+      <p class="step-subheading">Optional — but when you tell us your positions, every analysis is personalized to your actual cost basis and portfolio weight.</p>
+
+      <div class="form-row" style="margin-bottom: 10px;">
+        <div class="form-group" style="flex:1">
+          <label class="form-label" for="h-ticker">Ticker</label>
+          <input class="form-input" id="h-ticker" type="text" placeholder="NVDA" maxlength="8" autocapitalize="characters" style="text-transform:uppercase">
+        </div>
+        <div class="form-group" style="width:110px">
+          <label class="form-label" for="h-shares">Shares</label>
+          <input class="form-input" id="h-shares" type="number" placeholder="100" min="1" step="1">
+          <span class="form-hint">Whole shares</span>
+        </div>
+        <div class="form-group" style="width:130px">
+          <label class="form-label" for="h-cost">Avg cost ($)</label>
+          <input class="form-input" id="h-cost" type="number" placeholder="118.00" min="0.01" step="0.01">
+        </div>
+      </div>
+
+      <button class="btn-add" style="margin-bottom:24px;" onclick="addHolding()">Add holding</button>
+
+      <div class="holdings-list" id="holdings-list"></div>
+
+      <button class="btn-primary" onclick="goToStep3()">Save holdings and continue →</button>
+      <button class="btn-skip" onclick="goToStep3(true)">Skip for now — I'll add this later</button>
+    </div>
+
+    <!-- Step 3: Confirmation -->
+    <div class="step" id="step-3">
+      <div class="confirm-icon">✓</div>
+      <p class="step-eyebrow">Step 3 of 3 — All set</p>
+      <h1 class="step-heading">You're ready.</h1>
+      <p class="step-subheading">Your first Sunday report is scheduled. In the meantime, run an on-demand analysis on any stock — right now.</p>
+
+      <div class="next-report-card">
+        <p class="next-report-label">Your first Sunday report</p>
+        <p class="next-report-date" id="next-sunday-date">Loading…</p>
+        <p class="next-report-sub">We'll analyze your watchlist and send it to your inbox at 8pm ET.</p>
+        <div class="watchlist-summary" id="confirm-tickers"></div>
+      </div>
+
+      <button class="btn-primary" onclick="window.location.href='analyze.html'">
+        Run your first analysis now →
+      </button>
+      <button class="btn-skip" onclick="window.location.href='dashboard.html'">
+        Go to dashboard
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const SUPABASE_URL = window.SUPABASE_URL || 'http://localhost:54321';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'your-anon-key';
+const API_URL = window.API_URL || 'http://localhost:8000';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let tickers = [];
+let holdings = [];
+let authToken = null;
+
+// ─── Auth check ──────────────────────────────────────────────────
+(async () => {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    window.location.href = 'signin.html';
+    return;
+  }
+  authToken = data.session.access_token;
+})();
+
+// ─── Step progress ────────────────────────────────────────────────
+function setStep(n) {
+  document.querySelectorAll('.step').forEach((el, i) => {
+    el.classList.toggle('active', i + 1 === n);
+  });
+  document.getElementById('nav-step').textContent = `Step ${n} of 3`;
+  document.getElementById('progress-fill').style.width = `${Math.round((n / 3) * 100)}%`;
+  window.scrollTo(0, 0);
+}
+
+// ─── Step 1: Watchlist ─────────────────────────────────────────────
+function renderChips() {
+  const container = document.getElementById('ticker-chips');
+  container.innerHTML = tickers.map(t => `
+    <div class="ticker-chip">
+      ${t}
+      <button class="ticker-chip-remove" onclick="removeTicker('${t}')" aria-label="Remove ${t}">×</button>
+    </div>
+  `).join('');
+
+  const hint = document.getElementById('ticker-hint');
+  const btn = document.getElementById('step1-btn');
+  const remaining = Math.max(0, 3 - tickers.length);
+  if (tickers.length === 0) {
+    hint.textContent = 'Add at least 3 stocks to continue.';
+  } else if (remaining > 0) {
+    hint.textContent = `Add ${remaining} more to continue.`;
+  } else {
+    hint.textContent = `${tickers.length} stocks added. You can add up to 10.`;
+  }
+  btn.disabled = tickers.length < 3;
+}
+
+function addTicker() {
+  const input = document.getElementById('ticker-input');
+  const val = input.value.toUpperCase().trim().replace(/[^A-Z]/g, '');
+  if (!val || val.length > 8) { input.value = ''; return; }
+  if (tickers.includes(val)) { input.value = ''; return; }
+  if (tickers.length >= 10) return;
+  tickers.push(val);
+  input.value = '';
+  renderChips();
+}
+
+function addSuggested(ticker) {
+  if (tickers.includes(ticker) || tickers.length >= 10) return;
+  tickers.push(ticker);
+  renderChips();
+}
+
+function removeTicker(ticker) {
+  tickers = tickers.filter(t => t !== ticker);
+  renderChips();
+}
+
+document.getElementById('ticker-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); addTicker(); }
+});
+
+async function goToStep2() {
+  if (tickers.length < 3) return;
+  const btn = document.getElementById('step1-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    for (const ticker of tickers) {
+      await fetch(`${API_URL}/watchlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ ticker }),
+      });
+    }
+  } catch (e) {
+    console.warn('API not available — continuing in demo mode');
+  }
+
+  setStep(2);
+}
+
+// ─── Step 2: Portfolio ────────────────────────────────────────────
+function renderHoldings() {
+  const list = document.getElementById('holdings-list');
+  list.innerHTML = holdings.map((h, i) => `
+    <div class="holding-row">
+      <span class="holding-ticker">${h.ticker}</span>
+      <span class="holding-detail">${h.shares} shares @ $${h.avg_cost_usd.toFixed(2)}</span>
+      <button class="holding-remove" onclick="removeHolding(${i})" aria-label="Remove ${h.ticker}">×</button>
+    </div>
+  `).join('');
+}
+
+function addHolding() {
+  const ticker = document.getElementById('h-ticker').value.toUpperCase().trim().replace(/[^A-Z]/g, '');
+  const shares = parseInt(document.getElementById('h-shares').value);
+  const cost = parseFloat(document.getElementById('h-cost').value);
+
+  if (!ticker || !shares || !cost || shares < 1 || cost <= 0) return;
+  if (holdings.find(h => h.ticker === ticker)) {
+    holdings = holdings.filter(h => h.ticker !== ticker); // replace
+  }
+  holdings.push({ ticker, shares, avg_cost_usd: cost });
+  document.getElementById('h-ticker').value = '';
+  document.getElementById('h-shares').value = '';
+  document.getElementById('h-cost').value = '';
+  renderHoldings();
+}
+
+function removeHolding(i) {
+  holdings.splice(i, 1);
+  renderHoldings();
+}
+
+async function goToStep3(skip = false) {
+  if (!skip && holdings.length > 0) {
+    try {
+      for (const h of holdings) {
+        await fetch(`${API_URL}/portfolio/holdings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+          body: JSON.stringify(h),
+        });
+      }
+    } catch (e) {
+      console.warn('API not available — continuing in demo mode');
+    }
+  }
+
+  // Set next Sunday date
+  const now = new Date();
+  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+  const nextSunday = new Date(now);
+  nextSunday.setDate(now.getDate() + daysUntilSunday);
+  const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+  document.getElementById('next-sunday-date').textContent =
+    nextSunday.toLocaleDateString('en-US', opts) + ' at 8pm ET';
+
+  // Show tickers in confirmation
+  document.getElementById('confirm-tickers').innerHTML = tickers.map(t => `
+    <div class="ticker-chip" style="font-size:12px;padding:4px 10px;">${t}</div>
+  `).join('');
+
+  setStep(3);
+}
+</script>
+</body>
+</html>
