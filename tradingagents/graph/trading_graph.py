@@ -56,6 +56,7 @@ class TradingAgentsGraph:
         debug=False,
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
+        user_id: str = "cli",
     ):
         """Initialize the trading agents graph and components.
 
@@ -64,10 +65,12 @@ class TradingAgentsGraph:
             debug: Whether to run in debug mode
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
+            user_id: User identifier for scoping checkpoints in multi-user deployments
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
+        self.user_id = user_id
 
         # Update the interface's config
         set_config(self.config)
@@ -283,7 +286,8 @@ class TradingAgentsGraph:
             self.graph = self.workflow.compile(checkpointer=saver)
 
             step = checkpoint_step(
-                self.config["data_cache_dir"], company_name, str(trade_date)
+                self.config["data_cache_dir"], company_name, str(trade_date),
+                user_id=self.user_id,
             )
             if step is not None:
                 logger.info(
@@ -309,9 +313,9 @@ class TradingAgentsGraph:
         )
         args = self.propagator.get_graph_args()
 
-        # Inject thread_id so same ticker+date resumes, different date starts fresh.
+        # Inject thread_id so same user+ticker+date resumes, different user/date starts fresh.
         if self.config.get("checkpoint_enabled"):
-            tid = thread_id(company_name, str(trade_date))
+            tid = thread_id(company_name, str(trade_date), user_id=self.user_id)
             args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = tid
 
         if self.debug:
@@ -342,7 +346,8 @@ class TradingAgentsGraph:
         # Clear checkpoint on successful completion to avoid stale state.
         if self.config.get("checkpoint_enabled"):
             clear_checkpoint(
-                self.config["data_cache_dir"], company_name, str(trade_date)
+                self.config["data_cache_dir"], company_name, str(trade_date),
+                user_id=self.user_id,
             )
 
         return final_state, self.process_signal(final_state["final_trade_decision"])

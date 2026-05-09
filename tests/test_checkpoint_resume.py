@@ -143,5 +143,25 @@ class TestCheckpointResume(unittest.TestCase):
         self.assertTrue(has_checkpoint(self.tmpdir, self.ticker, self.date))
 
 
+class TestThreadIdUserIsolation(unittest.TestCase):
+    def test_thread_id_user_isolation(self):
+        """Different user_ids with the same ticker+date must produce different thread_ids."""
+        tid_a = thread_id("NVDA", "2026-01-01", user_id="user_a")
+        tid_b = thread_id("NVDA", "2026-01-01", user_id="user_b")
+        self.assertNotEqual(tid_a, tid_b)
+
+    def test_thread_id_same_user_same_result(self):
+        """Same user_id+ticker+date must always produce the same thread_id."""
+        tid_1 = thread_id("NVDA", "2026-01-01", user_id="user_a")
+        tid_2 = thread_id("NVDA", "2026-01-01", user_id="user_a")
+        self.assertEqual(tid_1, tid_2)
+
+    def test_thread_id_default_user_backward_compatible(self):
+        """Omitting user_id (default 'cli') must still produce a stable value."""
+        tid_positional = thread_id("AAPL", "2026-01-01")
+        tid_explicit = thread_id("AAPL", "2026-01-01", user_id="cli")
+        self.assertEqual(tid_positional, tid_explicit)
+
+
 if __name__ == "__main__":
     unittest.main()

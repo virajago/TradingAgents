@@ -32,6 +32,13 @@ dependencies = [
     "yfinance>=0.2.63",
 ]
 
+[project.optional-dependencies]
+saas = [
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
 [project.scripts]
 tradingagents = "cli.main:app"
 

@@ -25,9 +25,9 @@ def _db_path(data_dir: str | Path, ticker: str) -> Path:
     return p / f"{safe}.db"
 
 
-def thread_id(ticker: str, date: str) -> str:
-    """Deterministic thread ID for a ticker+date pair."""
-    return hashlib.sha256(f"{ticker.upper()}:{date}".encode()).hexdigest()[:16]
+def thread_id(ticker: str, date: str, user_id: str = "cli") -> str:
+    """Deterministic thread ID for a user+ticker+date triple."""
+    return hashlib.sha256(f"{user_id}:{ticker.upper()}:{date}".encode()).hexdigest()[:16]
 
 
 @contextmanager
@@ -43,17 +43,19 @@ def get_checkpointer(data_dir: str | Path, ticker: str) -> Generator[SqliteSaver
         conn.close()
 
 
-def has_checkpoint(data_dir: str | Path, ticker: str, date: str) -> bool:
-    """Check whether a resumable checkpoint exists for ticker+date."""
-    return checkpoint_step(data_dir, ticker, date) is not None
+def has_checkpoint(data_dir: str | Path, ticker: str, date: str, user_id: str = "cli") -> bool:
+    """Check whether a resumable checkpoint exists for user+ticker+date."""
+    return checkpoint_step(data_dir, ticker, date, user_id) is not None
 
 
-def checkpoint_step(data_dir: str | Path, ticker: str, date: str) -> int | None:
+def checkpoint_step(
+    data_dir: str | Path, ticker: str, date: str, user_id: str = "cli"
+) -> int | None:
     """Return the step number of the latest checkpoint, or None if none exists."""
     db = _db_path(data_dir, ticker)
     if not db.exists():
         return None
-    tid = thread_id(ticker, date)
+    tid = thread_id(ticker, date, user_id)
     with get_checkpointer(data_dir, ticker) as saver:
         config = {"configurable": {"thread_id": tid}}
         cp = saver.get_tuple(config)
@@ -73,12 +75,14 @@ def clear_all_checkpoints(data_dir: str | Path) -> int:
     return len(dbs)
 
 
-def clear_checkpoint(data_dir: str | Path, ticker: str, date: str) -> None:
-    """Remove checkpoint for a specific ticker+date by deleting the thread's rows."""
+def clear_checkpoint(
+    data_dir: str | Path, ticker: str, date: str, user_id: str = "cli"
+) -> None:
+    """Remove checkpoint for a specific user+ticker+date by deleting the thread's rows."""
     db = _db_path(data_dir, ticker)
     if not db.exists():
         return
-    tid = thread_id(ticker, date)
+    tid = thread_id(ticker, date, user_id)
     conn = sqlite3.connect(str(db))
     try:
         for table in ("writes", "checkpoints"):
@@ -88,3 +92,24 @@ def clear_checkpoint(data_dir: str | Path, ticker: str, date: str) -> None:
         pass
     finally:
         conn.close()
+
+
+def get_postgres_checkpointer(
+    connection_string: str, user_id: str, ticker: str, date: str
+):
+    """
+    Returns a LangGraph Postgres checkpointer for SaaS use.
+    Requires: pip install langgraph-checkpoint-postgres
+    The thread_id is user-scoped to prevent cross-user checkpoint contamination.
+    """
+    try:
+        from langgraph.checkpoint.postgres import PostgresSaver
+        tid = thread_id(ticker, date, user_id)
+        saver = PostgresSaver.from_conn_string(connection_string)
+        saver.setup()
+        return saver, tid
+    except ImportError:
+        raise ImportError(
+            "langgraph-checkpoint-postgres is required for SaaS mode. "
+            "Install it with: pip install langgraph-checkpoint-postgres"
+        )
