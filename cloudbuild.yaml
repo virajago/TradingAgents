@@ -1,0 +1,35 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
+      - '.'
+
+  # Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
+
+  # Deploy to Cloud Run (us-east1 for low latency to US-East users)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ai-analyst-weekly'
+      - '--image=gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
+      - '--region=us-east1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=2Gi'
+      - '--cpu=2'
+      - '--concurrency=80'
+      - '--min-instances=1'
+      - '--max-instances=10'
+      - '--set-env-vars=ENVIRONMENT=production'
+
+images:
+  - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
