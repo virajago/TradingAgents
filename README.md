@@ -1,12 +1,12 @@
 # AI Analyst Weekly
 
-Hedge-fund-quality stock research, delivered weekly. Built on the [TradingAgents](https://arxiv.org/abs/2412.20138) multi-agent LLM framework.
+Hedge-fund-quality stock research, delivered weekly. Built on the TradingAgents multi-agent LLM framework.
 
-**Stack:** FastAPI · Supabase · Cloud Run · Cloudflare Pages · Stripe · Resend · Loops.so
+**Stack:** FastAPI · Supabase · Stripe · Resend · Loops.so · LiteLLM
 
 ---
 
-⚡ [Local Dev](#local-development-web-app) | 🚀 [Deploy to Production](#production-deployment) | 💻 [CLI](#installation-and-cli) | 📦 [Python Package](#tradingagents-package) | 🔬 [Framework](#tradingagents-framework)
+⚡ [Local Dev](#local-development) | 💻 [CLI](#installation-and-cli) | 📦 [Python Package](#tradingagents-package) | 🔬 [Framework](#tradingagents-framework)
 
 ---
 
@@ -18,9 +18,26 @@ A production SaaS built on the TradingAgents engine. Delivers hedge-fund-quality
 
 **Credit costs:** On-demand analysis = 10 credits · Weekly digest per ticker = 3 credits · Alert = 1 credit
 
+**Architecture:**
+```
+Single container (Dockerfile)
+  ├── FastAPI backend   — all API routes (/auth, /analyze, /watchlist, ...)
+  ├── Frontend          — static HTML served at / (index.html, dashboard.html, ...)
+  └── Workers           — async analysis pipeline, batch scheduler, alert monitor
+
+Supabase              — Postgres + Auth + RLS
+Stripe                — credit pack subscriptions (3 tiers, 7-day trial)
+Resend                — transactional email (digest, alerts)
+Loops.so              — lifecycle email sequences
+Finnhub               — real-time market event monitoring
+LiteLLM               — provider-agnostic LLM routing (Claude, Gemini, GPT-4o, DeepSeek)
+```
+
+**Pipeline:** 8 AI agents run in 3 phases. Phase 1 (4 analysts) runs in parallel, Phase 2 (bull+bear researchers) runs in parallel, Phase 3 (research manager → trader → portfolio manager) runs sequentially. Total analysis time: ~90 seconds.
+
 ---
 
-## Local Development (Web App)
+## Local Development
 
 ### Prerequisites
 
@@ -69,9 +86,11 @@ SUPABASE_SERVICE_ROLE_KEY=<from supabase start output>
 SUPABASE_JWT_SECRET=<from supabase start output>
 DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
 
-# LLM — choose one or more
-ANTHROPIC_API_KEY=sk-ant-...       # Claude — best for on-demand analysis
-GOOGLE_API_KEY=AIza...             # Gemini — best for weekly batch (cheaper)
+# LLM — Phase 1 analysts (fast + cheap)
+GOOGLE_API_KEY=AIza...             # Gemini 2.5 Flash
+
+# LLM — Phase 2+3 synthesis (quality reasoning)
+ANTHROPIC_API_KEY=sk-ant-...       # Claude Sonnet
 
 # Stripe test mode
 STRIPE_SECRET_KEY=sk_test_...
@@ -98,36 +117,20 @@ supabase db push saas/db/schema.sql   # apply full schema + RLS policies
 
 Copy the printed `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_JWT_SECRET` into `.env`.
 
-### 4. Start the API server
+### 4. Start the server
+
+One command starts everything — API + frontend:
 
 ```bash
 uvicorn saas.api.main:app --reload --port 8000
 ```
 
-API live at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+- Web app: `http://localhost:8000` (landing page)
+- Sign in: `http://localhost:8000/signin`
+- Dashboard: `http://localhost:8000/dashboard`
+- API docs: `http://localhost:8000/docs`
 
-### 5. Open the web app
-
-```bash
-# Serve all pages locally
-cd frontend
-python -m http.server 3000
-# Open http://localhost:3000
-```
-
-Or open individual pages directly:
-
-```bash
-open frontend/index.html        # landing page
-open frontend/dashboard.html    # post-login dashboard
-open frontend/analyze.html      # on-demand analysis + Analyst Briefing Room
-open frontend/watchlist.html    # watchlist management
-open frontend/portfolio.html    # portfolio holdings
-open frontend/journal.html      # decision journal
-open frontend/track-record.html # AI verdict track record
-```
-
-### 6. Test an analysis run
+### 5. Test an analysis run
 
 ```bash
 # Trigger on-demand analysis
@@ -145,7 +148,7 @@ curl -X POST http://localhost:8000/internal/batch/run \
   -H "x-internal-secret: any-random-string-for-local-dev"
 ```
 
-### 7. Test Stripe webhooks locally
+### 6. Test Stripe webhooks locally
 
 ```bash
 # Install Stripe CLI: brew install stripe/stripe-cli/stripe
@@ -157,173 +160,94 @@ stripe listen --forward-to localhost:8000/webhooks/stripe
 
 ## Production Deployment
 
-### Architecture
+The app ships as a **single Docker container** (`Dockerfile`) serving both the frontend and API. Deployment platform is not yet decided — the container is platform-agnostic and works on Cloud Run, Railway, Fly.io, Render, or any container host.
 
-```
-Cloudflare Pages   → Static HTML frontend (9 pages)
-Cloudflare CDN     → SSL, DDoS, asset caching
-Cloudflare AI GW   → LLM API proxy (caching + cost analytics)
+### What the container needs
 
-Cloud Run          → FastAPI backend + async analysis workers
-Cloud Scheduler    → Sunday 8pm ET batch trigger
-                   → Every 5 min alert monitor
-                   → Daily verdict settlement
-
-Supabase           → Postgres + Auth + RLS + Supavisor connection pooling
-Stripe             → Credit pack subscriptions (3 tiers, 7-day trial)
-Resend             → Transactional email (digest, alerts, receipts)
-Finnhub            → Real-time market event monitoring
-Loops.so           → Lifecycle email sequences (trial nudges, onboarding)
-```
-
-### 1. Create Supabase project
-
-1. Create a project at [supabase.com](https://supabase.com) in the **us-east-1** region
-2. Apply the schema:
+**Environment variables** (set in your platform's dashboard or secrets manager):
 
 ```bash
+# Supabase
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_JWT_SECRET=...
+DATABASE_URL=postgresql://postgres.<ref>:<pw>@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+
+# LLM
+ANTHROPIC_API_KEY=...
+GOOGLE_API_KEY=...
+
+# Stripe
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PRO=price_...
+STRIPE_PRICE_UNLIMITED=price_...
+
+# Email + alerts
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL=weekly@yourdomain.com
+FINNHUB_API_KEY=...
+LOOPS_API_KEY=...
+
+# Security
+INTERNAL_API_SECRET=<long-random-string>
+
+# Model config (defaults shown)
+ANALYST_PROVIDER=google
+ANALYST_MODEL=gemini-2.5-flash
+SYNTHESIS_PROVIDER=anthropic
+SYNTHESIS_MODEL=claude-sonnet-4-6
+
+ENVIRONMENT=production
+```
+
+### Cron jobs
+
+Three scheduled HTTP POST calls to `/internal/*` endpoints. Any cron service works — Cloud Scheduler, GitHub Actions, cron-job.org, or your platform's native scheduler:
+
+| Job | Schedule | Endpoint |
+|---|---|---|
+| Weekly digest | Sunday 8pm ET (`0 0 * * MON` UTC) | `POST /internal/batch/run` |
+| Alert monitor | Every 5 minutes | `POST /internal/alerts/check` |
+| Verdict settlement | Daily 10am UTC | `POST /internal/verdicts/settle` |
+
+All protected by `x-internal-secret` header matching `INTERNAL_API_SECRET`.
+
+### Supabase setup
+
+```bash
+# Apply schema to your Supabase project
 supabase db push saas/db/schema.sql \
   --db-url "postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres"
 ```
 
-3. Copy **URL**, **anon key**, **service role key**, **JWT secret**, and **database URL (Supavisor pooler)** from Project Settings → API.
-
-### 2. Create Stripe products
+### Stripe setup
 
 ```bash
-# Starter — $19/month, 100 credits
+# Create 3 products with 7-day free trials
 stripe prices create --product-data[name]="Starter" \
   --unit-amount 1900 --currency usd --recurring[interval]=month
 
-# Pro — $39/month, 300 credits
 stripe prices create --product-data[name]="Pro" \
   --unit-amount 3900 --currency usd --recurring[interval]=month
 
-# Unlimited — $79/month, 10,000 credits
 stripe prices create --product-data[name]="Unlimited" \
   --unit-amount 7900 --currency usd --recurring[interval]=month
 ```
 
-Enable 7-day free trials on each price in the Stripe dashboard.
+Enable 7-day free trials on each price in the Stripe dashboard. Add a webhook endpoint pointing at `https://your-app-url/webhooks/stripe` for: `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`.
 
-### 3. Deploy to Cloud Run
+### Email domain warming
 
-**Option A — Cloud Build CI/CD (recommended):**
+**Start this before launch** — new domains need 4-6 weeks before bulk sends land reliably in primary inbox. Configure SPF, DKIM, and DMARC DNS records in Resend, then send 5-10 test emails per day for 4 weeks.
 
-```bash
-# Connect your repo in GCP Cloud Build → Triggers
-# Every push to main auto-deploys via cloudbuild.yaml
-gcloud builds submit --config cloudbuild.yaml
-```
-
-**Option B — Direct deploy:**
+### Verify deployment
 
 ```bash
-gcloud run deploy ai-analyst-weekly \
-  --source . \
-  --region us-east1 \
-  --allow-unauthenticated \
-  --memory 2Gi \
-  --cpu 2 \
-  --min-instances 1 \
-  --max-instances 10 \
-  --concurrency 80
-```
-
-Set all environment variables on the service:
-
-```bash
-gcloud run services update ai-analyst-weekly --region us-east1 \
-  --set-env-vars "ENVIRONMENT=production,\
-SUPABASE_URL=https://<ref>.supabase.co,\
-SUPABASE_ANON_KEY=...,\
-SUPABASE_SERVICE_ROLE_KEY=...,\
-SUPABASE_JWT_SECRET=...,\
-DATABASE_URL=postgresql://postgres.<ref>:<pw>@aws-0-us-east-1.pooler.supabase.com:6543/postgres,\
-ANTHROPIC_API_KEY=...,\
-GOOGLE_API_KEY=...,\
-STRIPE_SECRET_KEY=sk_live_...,\
-STRIPE_WEBHOOK_SECRET=whsec_...,\
-STRIPE_PRICE_STARTER=price_...,\
-STRIPE_PRICE_PRO=price_...,\
-STRIPE_PRICE_UNLIMITED=price_...,\
-RESEND_API_KEY=re_...,\
-RESEND_FROM_EMAIL=weekly@yourdomain.com,\
-FINNHUB_API_KEY=...,\
-LOOPS_API_KEY=...,\
-INTERNAL_API_SECRET=<long-random-string>,\
-MAX_CONCURRENT_ANALYSES=20"
-```
-
-### 4. Set up Cloud Scheduler
-
-```bash
-CLOUD_RUN_URL=https://ai-analyst-weekly-xxxx-ue.a.run.app
-SECRET=<your-INTERNAL_API_SECRET>
-
-# Weekly digest — Sunday 8pm ET (Monday 00:00 UTC)
-gcloud scheduler jobs create http weekly-digest \
-  --location us-east1 \
-  --schedule "0 0 * * MON" \
-  --uri "$CLOUD_RUN_URL/internal/batch/run" \
-  --http-method POST \
-  --headers "x-internal-secret=$SECRET"
-
-# Alert monitor — every 5 minutes
-gcloud scheduler jobs create http alert-monitor \
-  --location us-east1 \
-  --schedule "*/5 * * * *" \
-  --uri "$CLOUD_RUN_URL/internal/alerts/check" \
-  --http-method POST \
-  --headers "x-internal-secret=$SECRET"
-
-# Verdict settlement — daily at 10am UTC
-gcloud scheduler jobs create http verdict-settler \
-  --location us-east1 \
-  --schedule "0 10 * * *" \
-  --uri "$CLOUD_RUN_URL/internal/verdicts/settle" \
-  --http-method POST \
-  --headers "x-internal-secret=$SECRET"
-```
-
-### 5. Deploy frontend to Cloudflare Pages
-
-```bash
-npm install -g wrangler && wrangler login
-
-wrangler pages deploy frontend/ --project-name ai-analyst-weekly
-```
-
-Or connect your GitHub repo in the Cloudflare Pages dashboard and set:
-- **Build output directory:** `frontend`
-- **Build command:** *(leave empty — no build step needed)*
-
-### 6. Configure Stripe webhook
-
-In Stripe Dashboard → Webhooks, add endpoint `https://<cloud-run-url>/webhooks/stripe` and select:
-- `customer.subscription.created`
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
-- `invoice.payment_succeeded`
-- `invoice.payment_failed`
-
-### 7. Email domain warming
-
-**Start this immediately** — new domains need 4-6 weeks before bulk sends land reliably in primary inbox.
-
-```bash
-# Add your domain in Resend → configure SPF, DKIM, DMARC DNS records
-# Send 5-10 test emails/day for 4 weeks before the first Sunday batch
-```
-
-### 8. Verify production
-
-```bash
-curl https://<cloud-run-url>/health
+curl https://your-app-url/health
 # → {"status": "ok"}
-
-curl -X POST https://<cloud-run-url>/internal/batch/run \
-  -H "x-internal-secret: <INTERNAL_API_SECRET>"
 ```
 
 ---
@@ -338,7 +262,7 @@ curl -X POST https://<cloud-run-url>/internal/batch/run \
 git clone https://github.com/virajago/TradingAgents.git
 cd TradingAgents
 
-uv venv --python 3.13
+uv venv --python 3.11
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 uv pip install .
 ```
@@ -349,34 +273,24 @@ uv pip install .
 git clone https://github.com/virajago/TradingAgents.git
 cd TradingAgents
 
-conda create -n tradingagents python=3.13
+conda create -n tradingagents python=3.11
 conda activate tradingagents
 pip install .
-```
-
-### Docker
-
-```bash
-cp .env.example .env  # add your API keys
-docker compose run --rm tradingagents
-
-# With Ollama for local models:
-docker compose --profile ollama run --rm tradingagents-ollama
 ```
 
 ### Required API keys
 
 ```bash
-export OPENAI_API_KEY=...          # OpenAI (GPT)
-export GOOGLE_API_KEY=...          # Google (Gemini)
 export ANTHROPIC_API_KEY=...       # Anthropic (Claude)
+export GOOGLE_API_KEY=...          # Google (Gemini)
+export OPENAI_API_KEY=...          # OpenAI (GPT)
 export DEEPSEEK_API_KEY=...        # DeepSeek
 export DASHSCOPE_API_KEY=...       # Qwen (Alibaba)
 export ZHIPU_API_KEY=...           # GLM (Zhipu)
 export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage (optional)
 ```
 
-For enterprise providers (Azure OpenAI, AWS Bedrock), copy `.env.enterprise.example` to `.env.enterprise`.
+For enterprise providers (Azure OpenAI), copy `.env.enterprise.example` to `.env.enterprise`.
 
 ### CLI Usage
 
@@ -393,10 +307,6 @@ python -m cli.main     # run from source
   <img src="assets/cli/cli_news.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
-<p align="center">
-  <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
-
 ---
 
 ## TradingAgents Package
@@ -404,62 +314,84 @@ python -m cli.main     # run from source
 ### Python Usage
 
 ```python
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
+import asyncio
+from tradingagents.pipeline.runner import run_analysis
 
-# CLI / research usage
-ta = TradingAgentsGraph(debug=True, config=DEFAULT_CONFIG.copy())
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
+# Run a full 8-agent analysis
+state = asyncio.run(run_analysis(
+    ticker="NVDA",
+    trade_date="2026-01-15",
+    analyst_provider="google",
+    analyst_model="gemini-2.5-flash",       # Phase 1: fast + cheap
+    synthesis_provider="anthropic",
+    synthesis_model="claude-sonnet-4-6",    # Phase 2+3: quality reasoning
+))
 
-# SaaS / multi-user usage
-ta = TradingAgentsGraph(
-    config=DEFAULT_CONFIG.copy(),
-    user_id="user_abc123",     # scopes checkpoints + memory log per user
-    supabase_client=supabase,  # enables per-user Postgres memory log
-)
-_, decision = ta.propagate("NVDA", "2026-01-15")
+print(state.final_decision)
+print(state.fundamentals_report)
+print(state.bull_case)
 ```
 
-Configure models and debate depth:
+With portfolio context (personalises analysis to user's actual holdings):
 
 ```python
-config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "anthropic"       # openai, google, anthropic, deepseek, qwen, glm, ollama, azure
-config["deep_think_llm"] = "claude-sonnet-4-6"
-config["quick_think_llm"] = "gemini-2.5-flash"
-config["max_debate_rounds"] = 2
-
-ta = TradingAgentsGraph(config=config)
-_, decision = ta.propagate("NVDA", "2026-01-15")
+state = asyncio.run(run_analysis(
+    ticker="NVDA",
+    trade_date="2026-01-15",
+    portfolio_context={
+        "NVDA": {"shares": 200, "avg_cost_usd": 118.00}
+    },
+))
 ```
 
-See `tradingagents/default_config.py` for all options.
+With per-agent progress callback (powers the Analyst Briefing Room UI):
 
-### Persistence and Recovery
+```python
+async def on_agent_complete(agent_name: str, state):
+    print(f"{agent_name} complete — {state.agent_summaries.get(agent_name, '')}")
 
-**Decision log** — always on. Each run appends to `~/.tradingagents/memory/trading_memory.md`. On the next run for the same ticker, TradingAgents fetches the realised return, generates a reflection, and injects past decisions into the Portfolio Manager prompt.
+state = await run_analysis(
+    ticker="NVDA",
+    trade_date="2026-01-15",
+    on_agent_complete=on_agent_complete,
+)
+```
+
+Select specific analysts (default: all four):
+
+```python
+state = asyncio.run(run_analysis(
+    ticker="NVDA",
+    trade_date="2026-01-15",
+    selected_analysts=["fundamentals", "news"],  # skip market + social
+))
+```
+
+### Pipeline phases
+
+```
+Phase 1 (parallel ~30s):   Fundamental · Market · News · Sentiment analysts
+Phase 2 (parallel ~30s):   Bull Researcher · Bear Researcher
+Phase 3 (sequential ~60s): Research Manager → Trader → Portfolio Manager
+
+Total: ~90-120 seconds
+```
+
+### Persistence
+
+**Decision log** — always on. Each run appends the decision to `~/.tradingagents/memory/trading_memory.md`. On the next run for the same ticker, past decisions are injected into the Portfolio Manager prompt as context.
 
 Override path: `TRADINGAGENTS_MEMORY_LOG_PATH`
 
-In SaaS mode, the decision log is stored per-user in Supabase (`memory_log` table) instead of a shared file.
+In SaaS mode, the decision log is stored per-user in Supabase (`memory_log` table) — no shared file, no cross-user contamination.
 
-**Checkpoint resume** — opt-in via `--checkpoint`. Resumes from the last successful LangGraph node on crash or interruption.
-
-```bash
-tradingagents analyze --checkpoint        # enable
-tradingagents analyze --clear-checkpoints # reset before run
-```
-
-```python
-config["checkpoint_enabled"] = True
-```
+**Checkpoint resume** — the pipeline saves state to Supabase (SaaS) or a local JSON file (CLI) after each agent completes. If a run is interrupted, the next attempt resumes from the last completed agent instead of starting over.
 
 ---
 
 ## TradingAgents Framework
 
-TradingAgents is a multi-agent trading framework that mirrors the dynamics of real-world trading firms. Specialized LLM-powered agents — fundamental analysts, sentiment experts, technical analysts, researchers, trader, and risk management — collaboratively evaluate market conditions and debate trading decisions.
+TradingAgents is a multi-agent trading framework that mirrors the dynamics of real-world trading firms. Specialized LLM-powered agents collaborate and debate to produce structured investment analysis.
 
 <p align="center">
   <img src="assets/schema.png" style="width: 100%; height: auto;">
@@ -467,31 +399,29 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 
 > Designed for research purposes. Not intended as financial, investment, or trading advice. [Disclaimer](https://tauric.ai/disclaimer/)
 
-### Analyst Team
+### Agent pipeline
 
-- **Fundamentals Analyst** — evaluates company financials, intrinsic value, and red flags
+- **Fundamental Analyst** — evaluates financials, intrinsic value, red flags
 - **Sentiment Analyst** — analyzes social media and public sentiment
 - **News Analyst** — monitors global news and macroeconomic indicators
-- **Technical Analyst** — detects trading patterns via MACD, RSI, and other indicators
+- **Technical Analyst** — detects trading patterns via MACD, RSI, Bollinger Bands
 
 <p align="center">
   <img src="assets/analyst.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
-### Researcher Team
-
-Bull and bear researchers critically assess analyst insights through structured debate, balancing potential gains against risks.
+- **Bull Researcher + Bear Researcher** — structured debate using all analyst reports
 
 <p align="center">
   <img src="assets/researcher.png" width="70%" style="display: inline-block; margin: 0 2%;">
 </p>
 
-### Trader + Risk + Portfolio Manager
-
-The Trader synthesizes analyst and researcher reports into a trade proposal. The Risk Management team evaluates portfolio risk. The Portfolio Manager makes the final decision.
+- **Research Manager** — synthesises debate into investment plan
+- **Trader** — translates plan into a transaction proposal
+- **Portfolio Manager** — final decision with rating (Buy / Overweight / Hold / Underweight / Sell)
 
 <p align="center">
   <img src="assets/risk.png" width="70%" style="display: inline-block; margin: 0 2%;">
 </p>
 
-Built with LangGraph. Supports: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen, GLM, OpenRouter, Ollama, Azure OpenAI.
+Built with asyncio + LiteLLM. Supports: OpenAI, Google, Anthropic, DeepSeek, Qwen, GLM, OpenRouter, Ollama, Azure OpenAI.
