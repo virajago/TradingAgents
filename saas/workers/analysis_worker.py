@@ -8,6 +8,7 @@ import yfinance as yf
 from supabase import create_client
 
 from saas.config.settings import get_settings
+from tradingagents.pipeline.checkpoint import get_checkpoint
 from tradingagents.pipeline.runner import run_analysis
 from tradingagents.pipeline.state import AnalysisState
 
@@ -43,7 +44,16 @@ async def run_analysis_task(
     if portfolio_context is None:
         portfolio_context = _fetch_portfolio_context(supabase, user_id)
 
-    logger.info("Starting analysis: user=%s ticker=%s date=%s", user_id, ticker, trade_date)
+    task_id = overrides.get("task_id", f"{user_id}_{ticker}_{trade_date}")
+    checkpoint = get_checkpoint(
+        task_id=task_id,
+        ticker=ticker,
+        date=trade_date,
+        user_id=user_id,
+        supabase_client=supabase,
+    )
+
+    logger.info("Starting analysis: user=%s ticker=%s date=%s task=%s", user_id, ticker, trade_date, task_id)
 
     state = await run_analysis(
         ticker=ticker,
@@ -53,6 +63,7 @@ async def run_analysis_task(
         synthesis_provider=overrides.get("synthesis_provider", settings.synthesis_provider),
         synthesis_model=overrides.get("synthesis_model", settings.synthesis_model),
         portfolio_context=portfolio_context or {},
+        checkpoint=checkpoint,
     )
 
     signal = _extract_signal(state.final_decision)

@@ -42,6 +42,7 @@ async def run_analysis(
     portfolio_context: Optional[dict] = None,
     on_agent_complete: Optional[AgentCallback] = None,
     selected_analysts: tuple | list = ("market", "social", "news", "fundamentals"),
+    checkpoint=None,  # LocalCheckpoint or SupabaseCheckpoint instance
 ) -> AnalysisState:
     """
     Run the full 8-agent analysis pipeline.
@@ -60,11 +61,24 @@ async def run_analysis(
     Returns:
         AnalysisState with all reports and final_decision populated
     """
-    state = AnalysisState(
-        ticker=ticker.upper(),
-        trade_date=trade_date,
-        portfolio_context=portfolio_context or {},
-    )
+    # Resume from checkpoint if available (crash recovery)
+    if checkpoint is not None:
+        prior = checkpoint.load()
+        if prior is not None:
+            logger.info("Resuming from checkpoint for %s (%d agents done)", ticker, len(prior.completed_agents))
+            state = prior
+        else:
+            state = AnalysisState(
+                ticker=ticker.upper(),
+                trade_date=trade_date,
+                portfolio_context=portfolio_context or {},
+            )
+    else:
+        state = AnalysisState(
+            ticker=ticker.upper(),
+            trade_date=trade_date,
+            portfolio_context=portfolio_context or {},
+        )
 
     async def notify(agent_name: str) -> None:
         if on_agent_complete:
@@ -72,6 +86,9 @@ async def run_analysis(
                 await on_agent_complete(agent_name, state)
             except Exception as e:
                 logger.warning("on_agent_complete callback failed for %s: %s", agent_name, e)
+        # Save checkpoint after each agent completes
+        if checkpoint is not None:
+            checkpoint.save(state)
 
     # ── Phase 1: Analyst agents in parallel ──────────────────────────────────
     analyst_tasks = []
@@ -159,6 +176,10 @@ async def run_analysis(
     logger.info(
         "Analysis complete for %s: %d/8 agents", ticker, len(state.completed_agents)
     )
+    # Clear checkpoint on successful completion
+    if checkpoint is not None:
+        checkpoint.clear()
+
     return state
 
 
