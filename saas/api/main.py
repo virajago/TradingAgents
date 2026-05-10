@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from saas.api.routes import analyze, auth, credits, watchlist, portfolio, journal, verdicts, webhooks, internal
 from saas.config import get_settings
@@ -50,3 +52,10 @@ app.include_router(internal.router, prefix="/internal", tags=["internal"])
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# Static files — must be mounted LAST so API routes take priority.
+# Serves frontend/ at the root: / → index.html, /dashboard → dashboard.html, etc.
+_frontend_dir = Path(__file__).parent.parent.parent / "frontend"
+if _frontend_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")

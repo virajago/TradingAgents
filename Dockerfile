@@ -19,9 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt -r saas-requirements.txt
 # Copy application code
 COPY tradingagents/ tradingagents/
 COPY saas/ saas/
+COPY frontend/ frontend/
 COPY pyproject.toml .
 
-# Cloud Run injects PORT at runtime (default 8080)
+# PORT is injected at runtime by Cloud Run (and Railway, Fly.io, Render, etc.)
 ENV PORT=8080
 EXPOSE 8080
 
