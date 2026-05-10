@@ -160,94 +160,107 @@ stripe listen --forward-to localhost:8000/webhooks/stripe
 
 ## Production Deployment
 
-The app ships as a **single Docker container** (`Dockerfile`) serving both the frontend and API. Deployment platform is not yet decided — the container is platform-agnostic and works on Cloud Run, Railway, Fly.io, Render, or any container host.
+**Platform:** Google Cloud Run + Supabase
 
-### What the container needs
+The app deploys as a **single container** that serves both the frontend (static HTML) and the backend (FastAPI). One URL, one service, one deploy command.
 
-**Environment variables** (set in your platform's dashboard or secrets manager):
-
-```bash
-# Supabase
-SUPABASE_URL=https://<ref>.supabase.co
-SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-SUPABASE_JWT_SECRET=...
-DATABASE_URL=postgresql://postgres.<ref>:<pw>@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-
-# LLM
-ANTHROPIC_API_KEY=...
-GOOGLE_API_KEY=...
-
-# Stripe
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_STARTER=price_...
-STRIPE_PRICE_PRO=price_...
-STRIPE_PRICE_UNLIMITED=price_...
-
-# Email + alerts
-RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL=weekly@yourdomain.com
-FINNHUB_API_KEY=...
-LOOPS_API_KEY=...
-
-# Security
-INTERNAL_API_SECRET=<long-random-string>
-
-# Model config (defaults shown)
-ANALYST_PROVIDER=google
-ANALYST_MODEL=gemini-2.5-flash
-SYNTHESIS_PROVIDER=anthropic
-SYNTHESIS_MODEL=claude-sonnet-4-6
-
-ENVIRONMENT=production
+```
+Cloud Run        → single container: frontend + API + async workers
+Cloud Scheduler  → 3 cron jobs triggering /internal/* endpoints ($0.30/mo)
+Supabase         → Postgres + Auth + RLS (free tier covers ~35 users)
 ```
 
-### Cron jobs
+**Free tier:** Cloud Run free tier (2M requests + 360k vCPU-seconds/month) covers ~35 users at zero compute cost. Only Cloud Scheduler has a cost: $0.10/job × 3 jobs = **$0.30/month**.
 
-Three scheduled HTTP POST calls to `/internal/*` endpoints. Any cron service works — Cloud Scheduler, GitHub Actions, cron-job.org, or your platform's native scheduler:
+### Prerequisites
 
-| Job | Schedule | Endpoint |
-|---|---|---|
-| Weekly digest | Sunday 8pm ET (`0 0 * * MON` UTC) | `POST /internal/batch/run` |
-| Alert monitor | Every 5 minutes | `POST /internal/alerts/check` |
-| Verdict settlement | Daily 10am UTC | `POST /internal/verdicts/settle` |
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed and authenticated
+- GCP project created with billing enabled
+- Supabase project created at [supabase.com](https://supabase.com) (us-east-1 region)
+- Stripe products created (see Stripe setup below)
 
-All protected by `x-internal-secret` header matching `INTERNAL_API_SECRET`.
-
-### Supabase setup
+### 1. Configure environment
 
 ```bash
-# Apply schema to your Supabase project
-supabase db push saas/db/schema.sql \
-  --db-url "postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres"
+cp .env.production.example .env.production
+# Fill in all values — see comments in the file
 ```
 
-### Stripe setup
+Required values: Supabase URL/keys, Anthropic + Google API keys, Stripe keys + price IDs, Resend API key, `INTERNAL_API_SECRET` (generate with `openssl rand -hex 32`).
+
+### 2. Set GCP project
 
 ```bash
-# Create 3 products with 7-day free trials
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+### 3. Deploy
+
+```bash
+./deploy.sh
+```
+
+This single script:
+1. Enables required GCP APIs (Cloud Run, Cloud Build, Cloud Scheduler)
+2. Applies the Supabase schema (`saas/db/schema.sql`)
+3. Builds and pushes the Docker image via Cloud Build
+4. Deploys to Cloud Run with all environment variables
+5. Creates the 3 Cloud Scheduler cron jobs
+6. Runs a health check and prints the live URL
+
+Re-running `./deploy.sh` is safe — all steps are idempotent.
+
+### 4. Stripe webhook (manual, one-time)
+
+After the first deploy, go to [Stripe Dashboard → Webhooks](https://dashboard.stripe.com/webhooks):
+
+1. Add endpoint: `https://<your-cloud-run-url>/webhooks/stripe`
+2. Select events: `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`
+3. Copy the signing secret → add to `.env.production` as `STRIPE_WEBHOOK_SECRET`
+4. Re-run `./deploy.sh` to update the Cloud Run env var
+
+### 5. Stripe products (one-time setup)
+
+```bash
+# Starter — $19/month, 100 credits
 stripe prices create --product-data[name]="Starter" \
   --unit-amount 1900 --currency usd --recurring[interval]=month
 
+# Pro — $39/month, 300 credits
 stripe prices create --product-data[name]="Pro" \
   --unit-amount 3900 --currency usd --recurring[interval]=month
 
+# Unlimited — $79/month, 10,000 credits
 stripe prices create --product-data[name]="Unlimited" \
   --unit-amount 7900 --currency usd --recurring[interval]=month
 ```
 
-Enable 7-day free trials on each price in the Stripe dashboard. Add a webhook endpoint pointing at `https://your-app-url/webhooks/stripe` for: `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`.
+Enable 7-day free trials on each price in the Stripe dashboard. Copy the 3 price IDs to `.env.production`.
 
 ### Email domain warming
 
-**Start this before launch** — new domains need 4-6 weeks before bulk sends land reliably in primary inbox. Configure SPF, DKIM, and DMARC DNS records in Resend, then send 5-10 test emails per day for 4 weeks.
+**Start this immediately** — new domains need 4-6 weeks before bulk sends land reliably in primary inbox. Add your domain in Resend, configure SPF/DKIM/DMARC DNS records, and send 5-10 test emails per day for 4 weeks before the first Sunday batch.
 
-### Verify deployment
+### CI/CD (automatic deploys)
+
+Connect your GitHub repo in [GCP Cloud Build → Triggers](https://console.cloud.google.com/cloud-build/triggers). Select the repo, branch `main`, and trigger file `cloudbuild.yaml`. Every push to `main` will automatically build and deploy.
+
+### Useful commands
 
 ```bash
-curl https://your-app-url/health
-# → {"status": "ok"}
+# View live logs
+gcloud run logs tail ai-analyst-weekly --region=us-east1
+
+# Check service status
+gcloud run services describe ai-analyst-weekly --region=us-east1
+
+# Trigger batch manually
+curl -X POST https://<your-url>/internal/batch/run \
+  -H "x-internal-secret: $INTERNAL_API_SECRET"
+
+# Health check
+curl https://<your-url>/health
 ```
 
 ---

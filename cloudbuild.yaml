@@ -2,53 +2,39 @@ steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
-      - '.'
+      - build
+      - -t
+      - gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA
+      - -t
+      - gcr.io/$PROJECT_ID/ai-analyst-weekly:latest
+      - .
 
-  # Push to Container Registry
+  # Push both tags
   - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'push'
-      - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
+    args: [push, '--all-tags', 'gcr.io/$PROJECT_ID/ai-analyst-weekly']
 
-  # Deploy backend to Cloud Run (us-east1)
+  # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
-      - 'run'
-      - 'deploy'
-      - 'ai-analyst-weekly'
-      - '--image=gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
-      - '--region=us-east1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--memory=2Gi'
-      - '--cpu=2'
-      - '--concurrency=80'
-      - '--min-instances=1'
-      - '--max-instances=10'
-      - '--set-env-vars=ENVIRONMENT=production'
-
-  # Deploy frontend to Cloudflare Pages
-  # Requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in Cloud Build substitutions
-  - name: 'node:20-slim'
-    entrypoint: sh
-    args:
-      - '-c'
-      - |
-        npm install -g wrangler && \
-        wrangler pages deploy frontend/ \
-          --project-name=ai-analyst-weekly \
-          --commit-dirty=true
-    env:
-      - 'CLOUDFLARE_API_TOKEN=$_CLOUDFLARE_API_TOKEN'
-      - 'CLOUDFLARE_ACCOUNT_ID=$_CLOUDFLARE_ACCOUNT_ID'
+      - run
+      - deploy
+      - ai-analyst-weekly
+      - --image=gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA
+      - --region=us-east1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --memory=2Gi
+      - --cpu=2
+      - --concurrency=80
+      - --min-instances=0
+      - --max-instances=10
+      - --timeout=600          # 10 min — covers the longest analysis run
+      - --set-env-vars=ENVIRONMENT=production
 
 images:
-  - 'gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA'
+  - gcr.io/$PROJECT_ID/ai-analyst-weekly:$COMMIT_SHA
+  - gcr.io/$PROJECT_ID/ai-analyst-weekly:latest
 
-substitutions:
-  _CLOUDFLARE_API_TOKEN: ''   # set in Cloud Build trigger settings
-  _CLOUDFLARE_ACCOUNT_ID: ''  # set in Cloud Build trigger settings
+options:
+  logging: CLOUD_LOGGING_ONLY
