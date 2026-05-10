@@ -15,8 +15,7 @@ dependencies = [
     "langchain-experimental>=0.3.4",
     "langchain-google-genai>=4.0.0",
     "langchain-openai>=0.3.23",
-    "langgraph>=0.4.8",
-    "langgraph-checkpoint-sqlite>=2.0.0",
+    "litellm>=1.40.0",
     "pandas>=2.3.0",
     "parsel>=1.10.0",
     "pytz>=2025.2",
@@ -34,7 +33,6 @@ dependencies = [
 
 [project.optional-dependencies]
 saas = [
-    "langgraph-checkpoint-postgres>=2.0.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
 ]

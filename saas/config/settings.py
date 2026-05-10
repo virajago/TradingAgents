@@ -44,6 +44,12 @@ class Settings:
         # Loops.so lifecycle emails
         self.loops_api_key: str = os.environ.get("LOOPS_API_KEY", "")
 
+        # LLM model config — two-tier cost strategy
+        self.analyst_provider: str = os.environ.get("ANALYST_PROVIDER", "google")
+        self.analyst_model: str = os.environ.get("ANALYST_MODEL", "gemini-2.5-flash")
+        self.synthesis_provider: str = os.environ.get("SYNTHESIS_PROVIDER", "anthropic")
+        self.synthesis_model: str = os.environ.get("SYNTHESIS_MODEL", "claude-sonnet-4-6")
+
         # Finnhub
         self.finnhub_api_key: str = os.environ.get("FINNHUB_API_KEY", "")
 

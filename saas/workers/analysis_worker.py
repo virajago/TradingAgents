@@ -2,19 +2,19 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import Any, Dict, Optional
 
 import yfinance as yf
 from supabase import create_client
 
 from saas.config.settings import get_settings
-from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.pipeline.runner import run_analysis
+from tradingagents.pipeline.state import AnalysisState
 
 logger = logging.getLogger(__name__)
 
 
-def run_analysis(
+async def run_analysis_task(
     user_id: str,
     ticker: str,
     trade_date: str,
@@ -27,7 +27,7 @@ def run_analysis(
         user_id: Supabase user UUID string.
         ticker: Stock ticker symbol (e.g. "NVDA").
         trade_date: ISO date string (e.g. "2025-01-15").
-        config: Optional TradingAgentsGraph config overrides.
+        config: Optional config overrides (analyst_provider, analyst_model, etc.).
         portfolio_context: Pre-fetched holdings dict {TICKER: {shares, avg_cost_usd}}.
             When None, this function fetches holdings from Postgres.
 
@@ -37,32 +37,54 @@ def run_analysis(
     settings = get_settings()
     supabase = create_client(settings.supabase_url, settings.supabase_service_role_key)
 
-    effective_config: Dict[str, Any] = dict(config or {})
+    overrides: Dict[str, Any] = dict(config or {})
 
-    # Fetch portfolio holdings when not pre-fetched by the caller (e.g. single on-demand runs).
+    # Fetch portfolio holdings when not pre-fetched by the caller.
     if portfolio_context is None:
         portfolio_context = _fetch_portfolio_context(supabase, user_id)
 
-    if portfolio_context:
-        effective_config["portfolio_context"] = portfolio_context
-
-    ta = TradingAgentsGraph(
-        debug=False,
-        config=effective_config if effective_config else None,
-        user_id=user_id,
-        supabase_client=supabase,
-    )
-
     logger.info("Starting analysis: user=%s ticker=%s date=%s", user_id, ticker, trade_date)
-    final_state, signal = ta.propagate(ticker, trade_date)
-    logger.info(
-        "Completed analysis: user=%s ticker=%s signal=%s", user_id, ticker, signal
+
+    state = await run_analysis(
+        ticker=ticker,
+        trade_date=trade_date,
+        analyst_provider=overrides.get("analyst_provider", settings.analyst_provider),
+        analyst_model=overrides.get("analyst_model", settings.analyst_model),
+        synthesis_provider=overrides.get("synthesis_provider", settings.synthesis_provider),
+        synthesis_model=overrides.get("synthesis_model", settings.synthesis_model),
+        portfolio_context=portfolio_context or {},
     )
+
+    signal = _extract_signal(state.final_decision)
+    logger.info("Completed analysis: user=%s ticker=%s signal=%s", user_id, ticker, signal)
 
     # Log verdict to the track-record table and fire lifecycle events (non-fatal)
     _log_verdict(supabase, user_id, ticker, trade_date, signal)
 
+    final_state = {
+        "company_of_interest": ticker,
+        "trade_date": trade_date,
+        "market_report": state.market_report,
+        "sentiment_report": state.sentiment_report,
+        "news_report": state.news_report,
+        "fundamentals_report": state.fundamentals_report,
+        "investment_plan": state.investment_plan,
+        "trader_investment_plan": state.trader_proposal,
+        "final_trade_decision": state.final_decision,
+    }
+
     return {"final_state": final_state, "signal": signal}
+
+
+def _extract_signal(decision: str) -> str:
+    """Extract BUY / SELL / HOLD from the full decision text."""
+    if not decision:
+        return "HOLD"
+    upper = decision.upper()
+    for keyword in ("BUY", "SELL", "HOLD"):
+        if keyword in upper:
+            return keyword
+    return decision.strip()
 
 
 def _fetch_portfolio_context(supabase, user_id: str) -> Dict[str, Dict[str, Any]]:

@@ -25,9 +25,13 @@ DEFAULT_CONFIG = {
     "google_thinking_level": None,      # "high", "minimal", etc.
     "openai_reasoning_effort": None,    # "medium", "high", "low"
     "anthropic_effort": None,           # "high", "medium", "low"
-    # Checkpoint/resume: when True, LangGraph saves state after each node
-    # so a crashed run can resume from the last successful step.
-    "checkpoint_enabled": False,
+    # Pipeline model config — two-tier cost strategy
+    # Phase 1 analysts: fast + cheap model
+    "analyst_provider": "google",
+    "analyst_model": "gemini-2.5-flash",
+    # Phase 2+3 synthesis: quality model
+    "synthesis_provider": "anthropic",
+    "synthesis_model": "claude-sonnet-4-6",
     # Portfolio context: when set, agents receive position-aware instructions.
     # Shape: {TICKER: {"shares": int, "avg_cost_usd": float}}
     # Set by analysis_worker.py (SaaS path); None for CLI use.
