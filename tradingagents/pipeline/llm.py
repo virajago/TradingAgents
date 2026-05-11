@@ -63,7 +63,17 @@ async def llm_call(
         kwargs["tools"] = tools
         kwargs["tool_choice"] = "auto"
 
-    response = await acompletion(**kwargs)
+    # Retry once on transient 503/502 errors (Gemini occasionally blips)
+    for attempt in range(2):
+        try:
+            response = await acompletion(**kwargs)
+            break
+        except Exception as e:
+            if attempt == 0 and ("503" in str(e) or "502" in str(e) or "unavailable" in str(e).lower()):
+                import asyncio as _asyncio
+                await _asyncio.sleep(3)
+                continue
+            raise
     if not response.choices:
         return ""
     msg = response.choices[0].message

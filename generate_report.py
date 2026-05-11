@@ -427,26 +427,25 @@ def build_html(ticker: str, trade_date: str, state) -> str:
 
 # ── PDF via Playwright ────────────────────────────────────────────────────────
 
-def html_to_pdf(html_path: Path, pdf_path: Path) -> None:
+async def html_to_pdf(html_path: Path, pdf_path: Path) -> None:
     try:
-        from playwright.sync_api import sync_playwright
+        from playwright.async_api import async_playwright
     except ImportError:
         print("  ⚠  playwright not installed — skipping PDF.")
         print("     Run: uv pip install playwright && python -m playwright install chromium")
         return
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-        # Load fonts before printing
-        page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
-        page.pdf(
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
+        await page.pdf(
             path=str(pdf_path),
             format="A4",
             print_background=True,
             margin={"top": "16mm", "bottom": "16mm", "left": "14mm", "right": "14mm"},
         )
-        browser.close()
+        await browser.close()
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -489,7 +488,7 @@ async def run(ticker: str, trade_date: str, stem: str, make_pdf: bool) -> None:
     if make_pdf:
         pdf_path = out.with_suffix(".pdf")
         print(f"  PDF   -> {pdf_path.resolve()}  (rendering...)", end="", flush=True)
-        html_to_pdf(html_path, pdf_path)
+        await html_to_pdf(html_path, pdf_path)
         print(" done")
 
     # Print verdict
