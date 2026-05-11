@@ -55,6 +55,22 @@ def _parse_table_rows(lines: list, start: int) -> tuple[str, int]:
         parts = row.strip().strip("|").split("|")
         return [_inline_md(c.strip()) for c in parts]
 
+    def _looks_numeric(text: str) -> bool:
+        """True if cell content is a pure financial value: ratio, percentage, price."""
+        plain = re.sub(r"<[^>]+>", "", text).strip()
+        if not plain or len(plain) > 30:
+            return False
+        patterns = [
+            r"^\$[\d,\.\s\-]+$",         # $5.33, $120.28 - $222.30
+            r"^~?\$[\d,\.]+",            # ~$96.7 Billion (starts with ~$)
+            r"^[\d,\.]+%$",              # 101.5%, 73%
+            r"^[\d,\.]+$",               # 19.44, 0.68, 3.905
+            r"^\d{4}-\d{2}-\d{2}$",      # 2026-05-12
+            r"^N/A$",
+            r"^[\d,\.]+ (B|M|K|T|Trillion|Billion|Million)$",  # 215.94 Billion
+        ]
+        return any(re.match(p, plain, re.IGNORECASE) for p in patterns)
+
     # First row = header, second row may be separator
     header_cells = parse_cells(rows[0])
     body_start = 1
@@ -67,11 +83,13 @@ def _parse_table_rows(lines: list, start: int) -> tuple[str, int]:
         if _is_separator_row(row):
             continue
         cells = parse_cells(row)
-        # Pad/trim to match header column count
         while len(cells) < len(header_cells):
             cells.append("")
-        row_html = "".join(f"<td>{c}</td>" for c in cells[:len(header_cells)])
-        body_html += f"<tr>{row_html}</tr>\n"
+        tds = []
+        for idx, cell in enumerate(cells[:len(header_cells)]):
+            css = " numeric" if idx > 0 and _looks_numeric(cell) else ""
+            tds.append(f'<td class="{css.strip()}">{cell}</td>' if css.strip() else f"<td>{cell}</td>")
+        body_html += f"<tr>{''.join(tds)}</tr>\n"
 
     table_html = (
         f'<table class="data-table">'
@@ -383,16 +401,21 @@ def build_html(ticker: str, trade_date: str, state) -> str:
     color: var(--text-primary);
     line-height: 1.5;
     vertical-align: top;
+    word-break: break-word;
+    max-width: 320px;
   }}
   .data-table td:first-child {{
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
+    max-width: 160px;
   }}
-  .data-table td:nth-child(2) {{
+  /* Only apply monospace/blue to cells that look like numeric values */
+  .data-table td.numeric {{
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--accent);
+    white-space: nowrap;
   }}
   .data-table tbody tr:hover {{
     background: var(--surface-2);
