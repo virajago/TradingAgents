@@ -300,6 +300,9 @@ export OPENAI_API_KEY=...          # OpenAI (GPT)
 export DEEPSEEK_API_KEY=...        # DeepSeek
 export DASHSCOPE_API_KEY=...       # Qwen (Alibaba)
 export ZHIPU_API_KEY=...           # GLM (Zhipu)
+export MINIMAX_API_KEY=...         # MiniMax (global, api.minimax.io)
+export MINIMAX_CN_API_KEY=...      # MiniMax (China, api.minimaxi.com)
+export OPENROUTER_API_KEY=...      # OpenRouter
 export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage (optional)
 ```
 
@@ -323,6 +326,11 @@ python -m cli.main     # run from source
 ---
 
 ## TradingAgents Package
+
+### Implementation Details
+
+We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope), GLM (Zhipu), MiniMax (global + China), OpenRouter, Ollama for local models, and Azure OpenAI for enterprise.
+
 
 ### Python Usage
 
