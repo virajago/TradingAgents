@@ -64,6 +64,8 @@ async def llm_call(
         kwargs["tool_choice"] = "auto"
 
     response = await acompletion(**kwargs)
+    if not response.choices:
+        return ""
     msg = response.choices[0].message
 
     # Handle tool calls if the model requested them
@@ -84,6 +86,8 @@ async def llm_call(
         del kwargs["tools"]
         del kwargs["tool_choice"]
         response = await acompletion(**kwargs)
+        if not response.choices:
+            return ""
         msg = response.choices[0].message
 
     return msg.content or ""
