@@ -298,8 +298,10 @@ export ANTHROPIC_API_KEY=...       # Anthropic (Claude)
 export GOOGLE_API_KEY=...          # Google (Gemini)
 export OPENAI_API_KEY=...          # OpenAI (GPT)
 export DEEPSEEK_API_KEY=...        # DeepSeek
-export DASHSCOPE_API_KEY=...       # Qwen (Alibaba)
-export ZHIPU_API_KEY=...           # GLM (Zhipu)
+export DASHSCOPE_API_KEY=...       # Qwen — International (dashscope-intl.aliyuncs.com)
+export DASHSCOPE_CN_API_KEY=...    # Qwen — China (dashscope.aliyuncs.com)
+export ZHIPU_API_KEY=...           # GLM via Z.AI (international)
+export ZHIPU_CN_API_KEY=...        # GLM via BigModel (China, open.bigmodel.cn)
 export MINIMAX_API_KEY=...         # MiniMax — Global (api.minimax.io, M2.x, 204K ctx)
 export MINIMAX_CN_API_KEY=...      # MiniMax — China (api.minimaxi.com, M2.x, 204K ctx)
 export OPENROUTER_API_KEY=...      # OpenRouter
@@ -329,7 +331,7 @@ python -m cli.main     # run from source
 
 ### Implementation Details
 
-We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope), GLM (Zhipu), MiniMax (global + China), OpenRouter, Ollama for local models, and Azure OpenAI for enterprise.
+We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope, international and China endpoints), GLM (Zhipu), MiniMax (global + China), OpenRouter, Ollama for local models, and Azure OpenAI for enterprise.
 
 
 ### Python Usage
