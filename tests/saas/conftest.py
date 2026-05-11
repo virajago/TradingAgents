@@ -144,6 +144,10 @@ if "yfinance" not in sys.modules:
         _make_mock_module("yfinance", Ticker=MagicMock)
 
 # ── tradingagents pipeline stubs ───────────────────────────────────────────
+# Try to import the real package first — it IS installed and the pipeline
+# tests depend on it being real. Only stub if genuinely not importable.
+# This prevents sys.modules poisoning when pytest collects all tests together.
+import importlib as _importlib
 for _mod_path in [
     "tradingagents",
     "tradingagents.pipeline",
@@ -152,7 +156,10 @@ for _mod_path in [
     "tradingagents.pipeline.state",
 ]:
     if _mod_path not in sys.modules:
-        _make_mock_module(_mod_path)
+        try:
+            _importlib.import_module(_mod_path)
+        except (ImportError, ModuleNotFoundError):
+            _make_mock_module(_mod_path)
 
 # ── resend stub ────────────────────────────────────────────────────────────
 if "resend" not in sys.modules:
@@ -163,8 +170,22 @@ if "resend" not in sys.modules:
         _make_mock_module("resend")
 
 # ── saas.workers.* stubs ──────────────────────────────────────────────────
-# Stub every worker module so internal.py (which imports all of them at
-# module load time) doesn't try to pull in tradingagents pipeline code.
+# Try real imports first so test_analysis_worker_concurrency.py and other
+# tests outside tests/saas/ can patch the real module attributes.
+# Only fall back to stubs when the module genuinely can't be imported.
+
+for _worker_path in [
+    "saas.workers",
+    "saas.workers.analysis_worker",
+    "saas.workers.batch_scheduler",
+    "saas.workers.alert_monitor",
+    "saas.workers.verdict_settler",
+]:
+    if _worker_path not in sys.modules:
+        try:
+            _importlib.import_module(_worker_path)
+        except (ImportError, ModuleNotFoundError, Exception):
+            pass  # will stub individually below
 
 if "saas.workers" not in sys.modules:
     _make_mock_module("saas.workers")
@@ -172,27 +193,12 @@ if "saas.workers" not in sys.modules:
 if "saas.workers.analysis_worker" not in sys.modules:
     _worker_mod = _make_mock_module("saas.workers.analysis_worker")
     _worker_mod.AGENT_NAMES = [
-        "Market Analyst",
-        "Sentiment Analyst",
-        "News Analyst",
-        "Fundamentals Analyst",
-        "Research Manager",
-        "Trader",
+        "Market Analyst", "Sentiment Analyst", "News Analyst",
+        "Fundamentals Analyst", "Research Manager", "Trader",
     ]
-
-    def _get_task(task_id: str):  # noqa: ANN001
-        return None
-
-    async def _run_analysis(**kwargs):  # noqa: ANN001
-        return {}
-
-    def _fetch_portfolio_context(supabase, user_id: str):  # noqa: ANN001
-        return {}
-
-    _worker_mod.get_task = _get_task
-    _worker_mod.run_analysis = _run_analysis
+    _worker_mod.get_task = lambda task_id: None
     _worker_mod.run_analysis_task = AsyncMock(return_value={"final_state": {}, "signal": "HOLD"})
-    _worker_mod._fetch_portfolio_context = _fetch_portfolio_context
+    _worker_mod._fetch_portfolio_context = lambda supabase, user_id: {}
 
 if "saas.workers.batch_scheduler" not in sys.modules:
     _batch = _make_mock_module("saas.workers.batch_scheduler")

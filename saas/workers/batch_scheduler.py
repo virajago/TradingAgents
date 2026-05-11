@@ -8,12 +8,12 @@ from typing import Any, Dict, Optional
 from supabase import create_client
 
 from saas.config.settings import get_settings
-from saas.workers.analysis_worker import run_analysis, _fetch_portfolio_context
+from saas.workers.analysis_worker import run_analysis_task as run_analysis, _fetch_portfolio_context
 
 logger = logging.getLogger(__name__)
 
 
-def run_weekly_batch(trade_date: Optional[str] = None) -> None:
+async def run_weekly_batch(trade_date: Optional[str] = None) -> None:
     """Run weekly analyses for all active users.
 
     Fetches each user's watchlist tickers and portfolio holdings once per user,
@@ -37,12 +37,12 @@ def run_weekly_batch(trade_date: Optional[str] = None) -> None:
     for user_row in users:
         user_id = user_row["id"]
         try:
-            _run_user_batch(supabase, user_id, trade_date)
+            await _run_user_batch(supabase, user_id, trade_date)
         except Exception as exc:
             logger.error("Batch failed for user %s: %s", user_id, exc, exc_info=True)
 
 
-def _run_user_batch(supabase, user_id: str, trade_date: str) -> None:
+async def _run_user_batch(supabase, user_id: str, trade_date: str) -> None:
     """Run analyses for a single user across all their watched tickers."""
     # Fetch portfolio holdings once per user (re-used for all their tickers)
     portfolio_context = _fetch_portfolio_context(supabase, user_id)
@@ -65,7 +65,7 @@ def _run_user_batch(supabase, user_id: str, trade_date: str) -> None:
 
     for ticker in tickers:
         try:
-            run_analysis(
+            await run_analysis(
                 user_id=user_id,
                 ticker=ticker,
                 trade_date=trade_date,

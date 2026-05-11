@@ -47,11 +47,12 @@ async def test_webhook_rejects_invalid_signature(client: AsyncClient):
     """
     try:
         import stripe
-        sig_exc = stripe.error.SignatureVerificationError
+        # SignatureVerificationError requires (message, sig_header)
+        invalid_sig_exc = stripe.error.SignatureVerificationError("Invalid signature", "test-header")
     except Exception:
-        sig_exc = Exception
+        invalid_sig_exc = Exception("Invalid signature")
 
-    with patch("stripe.Webhook.construct_event", side_effect=sig_exc("Invalid signature")):
+    with patch("stripe.Webhook.construct_event", side_effect=invalid_sig_exc):
         response = await client.post(
             "/webhooks/stripe",
             content=json.dumps(VALID_SUBSCRIPTION_CREATED),

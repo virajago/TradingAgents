@@ -117,7 +117,7 @@ def _clear_batch_stub():
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_batch_calls_run_analysis_for_each_ticker():
+async def test_batch_calls_run_analysis_for_each_ticker():
     """run_weekly_batch must call run_analysis once per (user, ticker) pair."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -140,7 +140,7 @@ def test_batch_calls_run_analysis_for_each_ticker():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis", side_effect=fake_run_analysis), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", side_effect=fake_fetch_portfolio):
-        run_weekly_batch()
+        await run_weekly_batch()
 
     tickers_called = [c["ticker"] for c in analysis_calls]
     assert "NVDA" in tickers_called
@@ -148,7 +148,7 @@ def test_batch_calls_run_analysis_for_each_ticker():
     assert len(analysis_calls) == 2
 
 
-def test_batch_skips_users_with_empty_watchlist():
+async def test_batch_skips_users_with_empty_watchlist():
     """Users with no watchlist items must not trigger any run_analysis call."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -171,12 +171,12 @@ def test_batch_skips_users_with_empty_watchlist():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis", side_effect=fake_run_analysis), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", side_effect=fake_fetch_portfolio):
-        run_weekly_batch()
+        await run_weekly_batch()
 
     assert len(analysis_calls) == 0
 
 
-def test_batch_processes_multiple_users():
+async def test_batch_processes_multiple_users():
     """Each user's tickers are analysed independently."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -202,7 +202,7 @@ def test_batch_processes_multiple_users():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis", side_effect=fake_run_analysis), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", side_effect=fake_fetch_portfolio):
-        run_weekly_batch()
+        await run_weekly_batch()
 
     # u1 → 3 calls, u2 → 1 call
     assert len(analysis_calls) == 4
@@ -210,7 +210,7 @@ def test_batch_processes_multiple_users():
     assert ("u2", "GOOGL") in analysis_calls
 
 
-def test_batch_continues_after_single_analysis_failure():
+async def test_batch_continues_after_single_analysis_failure():
     """One ticker failing must not prevent the remaining tickers from running."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -241,12 +241,12 @@ def test_batch_continues_after_single_analysis_failure():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis", side_effect=flaky_run_analysis), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", side_effect=fake_fetch_portfolio):
-        run_weekly_batch()  # must not raise
+        await run_weekly_batch()  # must not raise
 
     assert "AAPL" in succeeded
 
 
-def test_batch_returns_none():
+async def test_batch_returns_none():
     """run_weekly_batch must return None (it is a fire-and-forget scheduler)."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -259,12 +259,12 @@ def test_batch_returns_none():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis"), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", return_value={}):
-        result = run_weekly_batch()
+        result = await run_weekly_batch()
 
     assert result is None
 
 
-def test_batch_passes_trade_date_to_analysis():
+async def test_batch_passes_trade_date_to_analysis():
     """The trade_date argument must be forwarded to each run_analysis call."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -287,12 +287,12 @@ def test_batch_passes_trade_date_to_analysis():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis", side_effect=fake_run_analysis), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", side_effect=fake_fetch_portfolio):
-        run_weekly_batch(trade_date="2026-01-12")
+        await run_weekly_batch(trade_date="2026-01-12")
 
     assert captured.get("trade_date") == "2026-01-12"
 
 
-def test_batch_uses_today_when_no_trade_date_given():
+async def test_batch_uses_today_when_no_trade_date_given():
     """run_weekly_batch defaults trade_date to today's ISO date."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -317,12 +317,12 @@ def test_batch_uses_today_when_no_trade_date_given():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis", side_effect=fake_run_analysis), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", side_effect=fake_fetch_portfolio):
-        run_weekly_batch()
+        await run_weekly_batch()
 
     assert captured.get("trade_date") == date.today().isoformat()
 
 
-def test_batch_survives_watchlist_fetch_failure():
+async def test_batch_survives_watchlist_fetch_failure():
     """If the watchlist query raises, the user is skipped but others continue."""
     try:
         from saas.workers.batch_scheduler import run_weekly_batch
@@ -367,7 +367,7 @@ def test_batch_survives_watchlist_fetch_failure():
          patch("saas.workers.batch_scheduler.get_settings"), \
          patch("saas.workers.batch_scheduler.run_analysis", side_effect=fake_run_analysis), \
          patch("saas.workers.batch_scheduler._fetch_portfolio_context", side_effect=fake_fetch_portfolio):
-        run_weekly_batch()  # must not raise
+        await run_weekly_batch()  # must not raise
 
     # u2's ticker should still be processed despite u1 failing
     assert "AAPL" in analysis_calls
