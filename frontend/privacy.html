@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafafa; --surface: #ffffff; --border: #e0e0e0;
+  --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-tertiary: #8a8a8a;
+  --accent: #1e4d8c; --accent-hover: #163a6b;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+  --radius-btn: 6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; background: var(--bg); color: var(--text-primary); }
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+
+/* Nav */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 48px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-brand {
+  font-family: var(--font-display); font-size: 15px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-primary); text-decoration: none;
+}
+.nav-links { display: flex; align-items: center; gap: 8px; }
+.nav-link {
+  font-family: var(--font-ui); font-size: 14px; font-weight: 500;
+  color: var(--text-secondary); text-decoration: none;
+  padding: 8px 14px; border-radius: var(--radius-btn);
+  transition: color 0.15s, background 0.15s;
+}
+.nav-link:hover { color: var(--text-primary); background: #f4f4f4; }
+.nav-cta {
+  font-family: var(--font-ui); font-size: 14px; font-weight: 600;
+  color: #ffffff; background: var(--accent);
+  text-decoration: none; padding: 9px 20px;
+  border-radius: var(--radius-btn); transition: background 0.15s;
+}
+.nav-cta:hover { background: var(--accent-hover); }
+
+/* Content */
+.content-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 64px 48px 80px;
+}
+
+.page-label {
+  font-family: var(--font-ui); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 16px;
+}
+
+.page-heading {
+  font-family: var(--font-display); font-size: 40px; font-weight: 700;
+  color: var(--text-primary); line-height: 1.15; margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.page-updated {
+  font-family: var(--font-ui); font-size: 14px; color: var(--text-tertiary);
+  margin-bottom: 48px;
+}
+
+.policy-section { margin-bottom: 40px; }
+
+.policy-section-heading {
+  font-family: var(--font-display); font-size: 22px; font-weight: 700;
+  color: var(--text-primary); margin-bottom: 14px;
+}
+
+.policy-body {
+  font-family: var(--font-body); font-size: 17px; color: var(--text-secondary);
+  line-height: 1.7; margin-bottom: 14px;
+}
+
+.policy-list {
+  list-style: none; padding: 0; margin: 0 0 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.policy-list li {
+  font-family: var(--font-body); font-size: 17px; color: var(--text-secondary);
+  line-height: 1.6; display: flex; gap: 10px; align-items: flex-start;
+}
+
+.policy-list li::before {
+  content: '—'; color: var(--text-tertiary); flex-shrink: 0; margin-top: 1px;
+}
+
+.policy-divider { height: 1px; background: var(--border); margin: 40px 0; }
+
+.contact-link {
+  color: var(--accent); text-decoration: underline; text-underline-offset: 3px;
+}
+.contact-link:hover { color: var(--accent-hover); }
+
+/* Footer */
+.footer {
+  border-top: 1px solid var(--border); background: var(--surface);
+  padding: 28px 48px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.footer-brand {
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary);
+}
+.footer-links {
+  font-family: var(--font-ui); font-size: 12px; color: var(--text-tertiary);
+  display: flex; gap: 16px;
+}
+.footer-links a { color: var(--text-tertiary); text-decoration: none; }
+.footer-links a:hover { color: var(--text-primary); }
+
+@media (max-width: 640px) {
+  .nav { padding: 0 20px; }
+  .nav-link { display: none; }
+  .content-wrap { padding: 40px 20px 60px; }
+  .page-heading { font-size: 30px; }
+  .footer { padding: 20px; flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Site navigation">
+  <a class="nav-brand" href="index.html">AI Analyst Weekly</a>
+  <div class="nav-links">
+    <a class="nav-link" href="signin.html">Sign in</a>
+    <a class="nav-cta" href="signup.html">Start free trial</a>
+  </div>
+</nav>
+
+<main>
+  <div class="content-wrap">
+    <p class="page-label">Legal</p>
+    <h1 class="page-heading">Privacy Policy</h1>
+    <p class="page-updated">Last updated May 2026</p>
+
+    <section class="policy-section" aria-labelledby="collect-heading">
+      <h2 class="policy-section-heading" id="collect-heading">What we collect</h2>
+      <ul class="policy-list">
+        <li>Email address, for account creation and email delivery</li>
+        <li>Stock watchlist and portfolio holdings, to personalize analysis</li>
+        <li>Analysis results and decision journal entries, core product data</li>
+        <li>Stripe payment information — processed by Stripe directly; we store only your subscription status</li>
+        <li>Usage analytics, anonymous and aggregated</li>
+      </ul>
+    </section>
+
+    <div class="policy-divider"></div>
+
+    <section class="policy-section" aria-labelledby="use-heading">
+      <h2 class="policy-section-heading" id="use-heading">How we use it</h2>
+      <ul class="policy-list">
+        <li>Deliver weekly email digests and red flag alerts</li>
+        <li>Personalize AI analysis to your portfolio</li>
+        <li>Process subscription billing via Stripe</li>
+        <li>Improve the product</li>
+      </ul>
+    </section>
+
+    <div class="policy-divider"></div>
+
+    <section class="policy-section" aria-labelledby="not-heading">
+      <h2 class="policy-section-heading" id="not-heading">What we don't do</h2>
+      <ul class="policy-list">
+        <li>We never sell your data</li>
+        <li>We never share your portfolio holdings with third parties</li>
+        <li>LLM providers (Anthropic, Google) receive only ticker names and public market data — never your personal information or portfolio details</li>
+      </ul>
+    </section>
+
+    <div class="policy-divider"></div>
+
+    <section class="policy-section" aria-labelledby="storage-heading">
+      <h2 class="policy-section-heading" id="storage-heading">Data storage</h2>
+      <p class="policy-body">
+        All data is stored in Supabase (PostgreSQL) in the us-east-1 region.
+        Row-level security ensures your data is isolated from other users.
+      </p>
+    </section>
+
+    <div class="policy-divider"></div>
+
+    <section class="policy-section" aria-labelledby="contact-heading">
+      <h2 class="policy-section-heading" id="contact-heading">Contact</h2>
+      <p class="policy-body">
+        Questions about this policy?
+        <a class="contact-link" href="mailto:privacy@aianalystweekly.com">privacy@aianalystweekly.com</a>
+      </p>
+    </section>
+  </div>
+</main>
+
+<footer class="footer" role="contentinfo">
+  <span class="footer-brand">AI Analyst Weekly</span>
+  <div class="footer-links">
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
+    <a href="disclaimer.html">Disclaimer</a>
+  </div>
+</footer>
+
+</body>
+</html>
