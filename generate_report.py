@@ -27,17 +27,83 @@ def _verdict_color(decision: str) -> tuple[str, str]:
     return "neutral", "NEUTRAL"
 
 
+def _is_table_row(line: str) -> bool:
+    stripped = line.strip()
+    return stripped.startswith("|") and stripped.endswith("|") and stripped.count("|") >= 2
+
+
+def _is_separator_row(line: str) -> bool:
+    """Detect Markdown table separator: | :--- | :--- |"""
+    return _is_table_row(line) and all(
+        c in ":-| " for c in line.strip()
+    )
+
+
+def _parse_table_rows(lines: list, start: int) -> tuple[str, int]:
+    """Parse a Markdown pipe table starting at index `start`. Returns (html, next_idx)."""
+    rows = []
+    i = start
+    while i < len(lines) and _is_table_row(lines[i]):
+        rows.append(lines[i])
+        i += 1
+
+    if not rows:
+        return "", start
+
+    # Split each row into cells
+    def parse_cells(row: str) -> list[str]:
+        parts = row.strip().strip("|").split("|")
+        return [_inline_md(c.strip()) for c in parts]
+
+    # First row = header, second row may be separator
+    header_cells = parse_cells(rows[0])
+    body_start = 1
+    if len(rows) > 1 and _is_separator_row(rows[1]):
+        body_start = 2
+
+    header_html = "".join(f"<th>{c}</th>" for c in header_cells)
+    body_html = ""
+    for row in rows[body_start:]:
+        if _is_separator_row(row):
+            continue
+        cells = parse_cells(row)
+        # Pad/trim to match header column count
+        while len(cells) < len(header_cells):
+            cells.append("")
+        row_html = "".join(f"<td>{c}</td>" for c in cells[:len(header_cells)])
+        body_html += f"<tr>{row_html}</tr>\n"
+
+    table_html = (
+        f'<table class="data-table">'
+        f"<thead><tr>{header_html}</tr></thead>"
+        f"<tbody>{body_html}</tbody>"
+        f"</table>"
+    )
+    return table_html, i
+
+
 def _md_to_html(text: str) -> str:
-    """Minimal Markdown → HTML for report body sections."""
+    """Markdown → HTML including pipe tables, bullets, headings, inline styling."""
     if not text:
         return "<p><em>Unavailable.</em></p>"
 
     lines = text.split("\n")
     out = []
     in_ul = False
+    i = 0
 
-    for line in lines:
+    while i < len(lines):
+        line = lines[i]
         stripped = line.strip()
+
+        # Markdown pipe table
+        if _is_table_row(stripped):
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            table_html, i = _parse_table_rows(lines, i)
+            out.append(table_html)
+            continue
 
         # Bullet list
         if stripped.startswith("- ") or stripped.startswith("* "):
@@ -46,6 +112,7 @@ def _md_to_html(text: str) -> str:
                 in_ul = True
             content = _inline_md(stripped[2:])
             out.append(f"  <li>{content}</li>")
+            i += 1
             continue
 
         # Close list if needed
@@ -60,18 +127,17 @@ def _md_to_html(text: str) -> str:
             out.append(f"<h3>{_inline_md(stripped[3:])}</h3>")
         elif stripped.startswith("# "):
             out.append(f"<h3>{_inline_md(stripped[2:])}</h3>")
-        # Horizontal rule
         elif stripped == "---":
             out.append("<hr>")
-        # Empty line → paragraph break
         elif not stripped:
             if in_ul:
                 out.append("</ul>")
                 in_ul = False
-            out.append("<p></p>")
-        # Normal text
+            out.append("")
         else:
             out.append(f"<p>{_inline_md(stripped)}</p>")
+
+        i += 1
 
     if in_ul:
         out.append("</ul>")
@@ -289,6 +355,59 @@ def build_html(ticker: str, trade_date: str, state) -> str:
     margin: 16px 0;
   }}
   .section-body p:empty {{ margin-bottom: 4px; }}
+
+  /* ── Data tables (from agent Markdown tables) ── */
+  .data-table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 20px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+  }}
+  .data-table thead tr {{
+    background: var(--surface-2);
+    border-bottom: 2px solid var(--border);
+  }}
+  .data-table th {{
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.03em;
+    font-size: 12px;
+    text-transform: uppercase;
+  }}
+  .data-table td {{
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--surface-2);
+    color: var(--text-primary);
+    line-height: 1.5;
+    vertical-align: top;
+  }}
+  .data-table td:first-child {{
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }}
+  .data-table td:nth-child(2) {{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+  }}
+  .data-table tbody tr:hover {{
+    background: var(--surface-2);
+  }}
+  .data-table tbody tr:last-child td {{
+    border-bottom: none;
+  }}
+  /* Tables inside debate columns */
+  .debate-side .data-table th {{
+    font-size: 11px;
+  }}
+  .debate-side .data-table td {{
+    font-size: 13px;
+    padding: 7px 10px;
+  }}
 
   /* ── Full decision section ── */
   .decision-body {{
