@@ -19,6 +19,28 @@ from pathlib import Path
 
 # ── PDF generation ────────────────────────────────────────────────────────────
 
+def _ascii(text: str) -> str:
+    """Replace non-Latin-1 characters with safe ASCII equivalents for fpdf2."""
+    replacements = {
+        "—": "--",   # em dash
+        "–": "-",    # en dash
+        "‘": "'",    # left single quote
+        "’": "'",    # right single quote
+        "“": '"',    # left double quote
+        "”": '"',    # right double quote
+        "…": "...",  # ellipsis
+        "•": "-",    # bullet
+        "✓": "OK",   # checkmark
+        "→": "->",   # right arrow
+        "·": "-",    # middle dot
+        " ": " ",    # non-breaking space
+    }
+    for char, replacement in replacements.items():
+        text = text.replace(char, replacement)
+    # Drop any remaining non-Latin-1 characters
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
 def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str) -> None:
     """Convert the Markdown report to a clean PDF using fpdf2."""
     try:
@@ -31,7 +53,7 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
         def header(self):
             self.set_font("Helvetica", "B", 9)
             self.set_text_color(100, 100, 100)
-            self.cell(0, 8, f"AI ANALYST WEEKLY  —  {ticker}  —  {trade_date}", align="L")
+            self.cell(0, 8, _ascii(f"AI ANALYST WEEKLY  |  {ticker}  |  {trade_date}"), align="L")
             self.set_text_color(0, 0, 0)
             self.ln(4)
             self.set_draw_color(220, 220, 220)
@@ -44,6 +66,7 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
             self.set_text_color(150, 150, 150)
             self.cell(0, 10, "Educational research only. Not investment advice. Not a registered investment adviser.", align="L")
             self.cell(0, 10, f"Page {self.page_no()}", align="R")
+            self.set_text_color(0, 0, 0)
 
     pdf = ReportPDF(orientation="P", unit="mm", format="A4")
     pdf.set_margins(20, 20, 20)
@@ -64,8 +87,8 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
         # H1
         if line.startswith("# "):
             pdf.set_font("Helvetica", "B", 18)
-            pdf.set_text_color(26, 77, 140)  # accent blue
-            pdf.multi_cell(0, 10, line[2:].strip())
+            pdf.set_text_color(26, 77, 140)
+            pdf.multi_cell(0, 10, _ascii(line[2:].strip()))
             pdf.set_text_color(0, 0, 0)
             pdf.ln(2)
 
@@ -74,9 +97,8 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
             pdf.ln(3)
             pdf.set_font("Helvetica", "B", 13)
             pdf.set_text_color(26, 77, 140)
-            pdf.multi_cell(0, 8, line[3:].strip())
+            pdf.multi_cell(0, 8, _ascii(line[3:].strip()))
             pdf.set_text_color(0, 0, 0)
-            # Underline
             pdf.set_draw_color(200, 210, 230)
             y = pdf.get_y()
             pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
@@ -87,7 +109,7 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
             pdf.ln(2)
             pdf.set_font("Helvetica", "B", 11)
             pdf.set_text_color(50, 50, 50)
-            pdf.multi_cell(0, 7, line[4:].strip())
+            pdf.multi_cell(0, 7, _ascii(line[4:].strip()))
             pdf.set_text_color(0, 0, 0)
             pdf.ln(1)
 
@@ -101,10 +123,9 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
         # Bold verdict line: **Rating**: ...
         elif line.startswith("**Rating**") or line.startswith("**Verdict**"):
             pdf.set_font("Helvetica", "B", 12)
-            pdf.set_fill_color(232, 245, 238)   # light green bg
-            pdf.set_text_color(26, 107, 60)     # bullish green
-            clean = _strip_md(line)
-            pdf.multi_cell(0, 8, clean, fill=True)
+            pdf.set_fill_color(232, 245, 238)
+            pdf.set_text_color(26, 107, 60)
+            pdf.multi_cell(0, 8, _strip_md(line), fill=True)
             pdf.set_text_color(0, 0, 0)
             pdf.ln(2)
 
@@ -119,7 +140,7 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
             pdf.set_font("Helvetica", "", 10)
             text = _strip_md(line.strip()[2:])
             pdf.set_x(pdf.l_margin + 5)
-            pdf.cell(4, 6, chr(149))  # bullet char
+            pdf.cell(4, 6, "-")
             pdf.multi_cell(0, 6, text)
 
         # Empty line
@@ -141,17 +162,14 @@ def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str
 
 
 def _strip_md(text: str) -> str:
-    """Remove Markdown formatting characters for plain PDF rendering."""
-    # Bold/italic
+    """Remove Markdown formatting and sanitize for Latin-1 PDF rendering."""
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
     text = re.sub(r"\*(.+?)\*", r"\1", text)
     text = re.sub(r"__(.+?)__", r"\1", text)
     text = re.sub(r"_(.+?)_", r"\1", text)
-    # Inline code
     text = re.sub(r"`(.+?)`", r"\1", text)
-    # Links [text](url) → text
     text = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", text)
-    return text
+    return _ascii(text)
 
 
 # ── Main analysis + report generation ────────────────────────────────────────
@@ -167,13 +185,20 @@ async def run(ticker: str, trade_date: str, output_stem: str, pdf: bool) -> None
     print(f"  Synthesis:  Bull/Bear Debate → Research Manager → Portfolio Manager")
     print()
 
+    AGENT_ORDER = [
+        "Fundamental Analyst", "Technical Analyst", "News Analyst", "Sentiment Analyst",
+        "Bull Researcher", "Bear Researcher", "Research Manager", "Trader", "Portfolio Manager",
+    ]
     agents_done = []
 
     async def on_agent_complete(agent_name, state):
-        agents_done.append(agent_name)
+        if agent_name not in agents_done:
+            agents_done.append(agent_name)
+        n = len(agents_done)
+        total = len(AGENT_ORDER)
         summary = state.agent_summaries.get(agent_name, "")
-        suffix = f" — {summary}" if summary else ""
-        print(f"  [{len(agents_done)}/8] ✓ {agent_name}{suffix}")
+        suffix = f" -- {summary}" if summary else ""
+        print(f"  [{n}/{total}] OK {agent_name}{suffix}")
 
     state = await run_analysis(
         ticker=ticker,
