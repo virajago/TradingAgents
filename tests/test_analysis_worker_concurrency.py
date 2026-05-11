@@ -77,7 +77,7 @@ async def test_run_analysis_task_returns_correct_keys():
 
     mock_checkpoint = MagicMock()
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=mock_run_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=mock_run_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \
@@ -103,7 +103,7 @@ async def test_run_analysis_task_final_state_contains_ticker():
     async def mock_run_analysis(**kwargs):
         return _make_analysis_state("AAPL", "HOLD — wait for earnings")
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=mock_run_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=mock_run_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \
@@ -137,7 +137,7 @@ async def test_signal_extracted_from_decision(decision, expected_signal):
     async def mock_run_analysis(**kwargs):
         return _make_analysis_state("NVDA", decision)
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=mock_run_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=mock_run_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \
@@ -166,7 +166,7 @@ async def test_exception_from_run_analysis_propagates():
     async def failing_analysis(**kwargs):
         raise ValueError("LLM API timeout")
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=failing_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=failing_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint):
@@ -204,7 +204,7 @@ async def test_concurrent_tasks_return_separate_results():
         get_checkpoint=lambda **kw: mock_checkpoint,
     )
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=slow_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=slow_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \
@@ -238,7 +238,7 @@ async def test_concurrent_tasks_same_user_different_tickers():
         call_order.append(f"end-{ticker}")
         return _make_analysis_state(ticker, "SELL — overvalued")
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=tracking_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=tracking_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \
@@ -275,7 +275,7 @@ async def test_concurrent_tasks_one_fails_other_succeeds():
             raise RuntimeError("Simulated API failure")
         return _make_analysis_state(ticker, "HOLD — neutral")
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=mixed_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=mixed_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \
@@ -329,7 +329,7 @@ async def test_portfolio_context_fetched_per_user():
     sb_b = make_user_sb("user-B")
     clients = iter([sb_a, sb_b])
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=mock_run_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=mock_run_analysis), \
          patch("saas.workers.analysis_worker.create_client", side_effect=lambda *a, **kw: next(clients)), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \
@@ -363,7 +363,7 @@ async def test_config_task_id_override_passed_to_checkpoint():
     async def mock_run_analysis(**kwargs):
         return _make_analysis_state("NVDA", "BUY")
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=mock_run_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=mock_run_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", side_effect=capture_checkpoint), \
@@ -395,7 +395,7 @@ async def test_portfolio_context_not_fetched_when_provided():
 
     pre_fetched = {"NVDA": {"shares": 100, "avg_cost_usd": 500.0}}
 
-    with patch("saas.workers.analysis_worker.run_analysis", new=capturing_analysis), \
+    with patch("saas.workers.analysis_worker._pipeline_run_analysis", new=capturing_analysis), \
          patch("saas.workers.analysis_worker.create_client", return_value=mock_sb), \
          patch("saas.workers.analysis_worker.get_settings", return_value=settings), \
          patch("saas.workers.analysis_worker.get_checkpoint", return_value=mock_checkpoint), \

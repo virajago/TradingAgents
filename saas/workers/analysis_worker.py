@@ -9,10 +9,31 @@ from supabase import create_client
 
 from saas.config.settings import get_settings
 from tradingagents.pipeline.checkpoint import get_checkpoint
-from tradingagents.pipeline.runner import run_analysis
+from tradingagents.pipeline.runner import run_analysis as _pipeline_run_analysis
 from tradingagents.pipeline.state import AnalysisState
 
 logger = logging.getLogger(__name__)
+
+# In-memory task registry for on-demand analyses (single Cloud Run instance)
+_tasks: Dict[str, Dict[str, Any]] = {}
+
+
+def get_task(task_id: str) -> Optional[Dict[str, Any]]:
+    """Return current task state dict, or None if task_id is unknown."""
+    return _tasks.get(task_id)
+
+
+# Agent names in pipeline execution order — used by the Briefing Room UI
+AGENT_NAMES = [
+    "Fundamental Analyst",
+    "Technical Analyst",
+    "News Analyst",
+    "Sentiment Analyst",
+    "Bull Researcher",
+    "Bear Researcher",
+    "Research Manager",
+    "Portfolio Manager",
+]
 
 
 async def run_analysis_task(
@@ -55,7 +76,7 @@ async def run_analysis_task(
 
     logger.info("Starting analysis: user=%s ticker=%s date=%s task=%s", user_id, ticker, trade_date, task_id)
 
-    state = await run_analysis(
+    state = await _pipeline_run_analysis(
         ticker=ticker,
         trade_date=trade_date,
         analyst_provider=overrides.get("analyst_provider", settings.analyst_provider),
@@ -186,3 +207,54 @@ def _log_verdict(supabase, user_id: str, ticker: str, trade_date: str, signal: A
 
     except Exception as exc:
         logger.warning("Failed to log verdict for ticker=%s user=%s: %s", ticker, user_id, exc)
+
+
+async def run_analysis(
+    task_id: str,
+    ticker: str,
+    user_id: str,
+    trade_date: str,
+    config: Optional[Dict[str, Any]] = None,
+    portfolio_context: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Queue and run an on-demand analysis, updating the task registry.
+
+    Called by POST /analyze. Returns immediately after registering the task;
+    the actual work happens in a background asyncio task.
+    """
+    _tasks[task_id] = {
+        "status": "running",
+        "ticker": ticker.upper(),
+        "user_id": user_id,
+        "agents": [{"name": n, "status": "queued", "summary": None} for n in AGENT_NAMES],
+        "progress_pct": 0,
+        "result": None,
+        "error": None,
+    }
+
+    async def on_agent_complete(agent_name: str, state) -> None:
+        task = _tasks.get(task_id, {})
+        for a in task.get("agents", []):
+            if a["name"] == agent_name:
+                a["status"] = "complete"
+                a["summary"] = state.agent_summaries.get(agent_name, "")
+        completed = sum(1 for a in task.get("agents", []) if a["status"] == "complete")
+        task["progress_pct"] = int(completed / len(AGENT_NAMES) * 100)
+
+    try:
+        result = await run_analysis_task(
+            user_id=user_id,
+            ticker=ticker,
+            trade_date=trade_date,
+            config=config,
+            portfolio_context=portfolio_context,
+        )
+        for a in _tasks[task_id]["agents"]:
+            a["status"] = "complete"
+        _tasks[task_id]["progress_pct"] = 100
+        _tasks[task_id]["status"] = "complete"
+        _tasks[task_id]["result"] = result.get("final_state", {}).get("final_trade_decision", "")
+    except Exception as e:
+        _tasks[task_id]["status"] = "error"
+        _tasks[task_id]["error"] = str(e)
+        logger.error("run_analysis failed task=%s ticker=%s: %s", task_id, ticker, e)
