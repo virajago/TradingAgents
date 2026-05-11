@@ -54,6 +54,7 @@ class Settings:
         self.finnhub_api_key: str = os.environ.get("FINNHUB_API_KEY", "")
 
         # App
+        self.app_url: str = os.environ.get("APP_URL", "http://localhost:8000")
         self.secret_key: str = os.environ.get("SECRET_KEY", "change-me-in-production")
         self.internal_api_secret: str = os.environ.get("INTERNAL_API_SECRET", "")
         self.environment: str = os.environ.get("ENVIRONMENT", "development")

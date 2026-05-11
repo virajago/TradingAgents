@@ -83,6 +83,38 @@ async def create_checkout_session(
     return {"checkout_url": session.url, "session_id": session.id}
 
 
+@router.post("/billing-portal")
+async def create_billing_portal_session(
+    user: dict = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+    supabase: Client = Depends(get_supabase),
+):
+    """
+    Create a Stripe Customer Portal session.
+    Returns a portal_url the frontend redirects to.
+    Allows users to manage subscription, payment method, and cancel.
+    """
+    stripe.api_key = settings.stripe_secret_key
+
+    profile = supabase.table("profiles").select("stripe_customer_id").eq(
+        "id", user["id"]
+    ).single().execute()
+
+    customer_id = profile.data.get("stripe_customer_id") if profile.data else None
+    if not customer_id:
+        raise HTTPException(status_code=404, detail="No billing account found")
+
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=settings.app_url + "/settings",
+        )
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Billing portal error: {e}")
+
+    return {"portal_url": session.url}
+
+
 @router.get("/me")
 async def get_current_user_profile(
     user: dict = Depends(get_current_user),
