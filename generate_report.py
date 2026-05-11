@@ -1,204 +1,475 @@
 #!/usr/bin/env python3
 """
-Generate a sample AI Analyst Weekly report for a given ticker.
+Generate a styled HTML + PDF research report for a given ticker.
 
 Usage:
     python generate_report.py NVDA
     python generate_report.py AAPL 2026-05-11
     python generate_report.py MSFT --output reports/msft
-    python generate_report.py NVDA --no-pdf        # Markdown only
+    python generate_report.py NVDA --no-pdf
 """
 import argparse
 import asyncio
 import re
-import sys
-import textwrap
 from datetime import date
 from pathlib import Path
 
 
-# ── PDF generation ────────────────────────────────────────────────────────────
+# ── Verdict helpers ───────────────────────────────────────────────────────────
 
-def _ascii(text: str) -> str:
-    """Replace non-Latin-1 characters with safe ASCII equivalents for fpdf2."""
-    replacements = {
-        "—": "--",   # em dash
-        "–": "-",    # en dash
-        "‘": "'",    # left single quote
-        "’": "'",    # right single quote
-        "“": '"',    # left double quote
-        "”": '"',    # right double quote
-        "…": "...",  # ellipsis
-        "•": "-",    # bullet
-        "✓": "OK",   # checkmark
-        "→": "->",   # right arrow
-        "·": "-",    # middle dot
-        " ": " ",    # non-breaking space
-    }
-    for char, replacement in replacements.items():
-        text = text.replace(char, replacement)
-    # Drop any remaining non-Latin-1 characters
-    return text.encode("latin-1", errors="replace").decode("latin-1")
+def _verdict_color(decision: str) -> tuple[str, str]:
+    """Return (css-class, label) based on the first word of the decision."""
+    upper = (decision or "").upper()
+    if "BUY" in upper or "BULLISH" in upper or "OVERWEIGHT" in upper:
+        return "bullish", "BULLISH"
+    if "SELL" in upper or "BEARISH" in upper or "UNDERWEIGHT" in upper:
+        return "bearish", "BEARISH"
+    return "neutral", "NEUTRAL"
 
 
-def generate_pdf(report_md: str, output_path: Path, ticker: str, trade_date: str) -> None:
-    """Convert the Markdown report to a clean PDF using fpdf2."""
-    try:
-        from fpdf import FPDF
-    except ImportError:
-        print("  ⚠ fpdf2 not installed — skipping PDF. Run: uv pip install fpdf2")
-        return
+def _md_to_html(text: str) -> str:
+    """Minimal Markdown → HTML for report body sections."""
+    if not text:
+        return "<p><em>Unavailable.</em></p>"
 
-    class ReportPDF(FPDF):
-        def header(self):
-            self.set_font("Helvetica", "B", 9)
-            self.set_text_color(100, 100, 100)
-            self.cell(0, 8, _ascii(f"AI ANALYST WEEKLY  |  {ticker}  |  {trade_date}"), align="L")
-            self.set_text_color(0, 0, 0)
-            self.ln(4)
-            self.set_draw_color(220, 220, 220)
-            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
-            self.ln(4)
+    lines = text.split("\n")
+    out = []
+    in_ul = False
 
-        def footer(self):
-            self.set_y(-15)
-            self.set_font("Helvetica", "I", 8)
-            self.set_text_color(150, 150, 150)
-            self.cell(0, 10, "Educational research only. Not investment advice. Not a registered investment adviser.", align="L")
-            self.cell(0, 10, f"Page {self.page_no()}", align="R")
-            self.set_text_color(0, 0, 0)
+    for line in lines:
+        stripped = line.strip()
 
-    pdf = ReportPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_margins(20, 20, 20)
-    pdf.set_auto_page_break(auto=True, margin=20)
-    pdf.add_page()
-
-    # Parse and render Markdown line by line
-    lines = report_md.split("\n")
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-
-        # Skip the blockquote disclaimer block (already in footer)
-        if line.startswith("> "):
-            i += 1
+        # Bullet list
+        if stripped.startswith("- ") or stripped.startswith("* "):
+            if not in_ul:
+                out.append("<ul>")
+                in_ul = True
+            content = _inline_md(stripped[2:])
+            out.append(f"  <li>{content}</li>")
             continue
 
-        # H1
-        if line.startswith("# "):
-            pdf.set_font("Helvetica", "B", 18)
-            pdf.set_text_color(26, 77, 140)
-            pdf.multi_cell(0, 10, _ascii(line[2:].strip()))
-            pdf.set_text_color(0, 0, 0)
-            pdf.ln(2)
+        # Close list if needed
+        if in_ul and stripped:
+            out.append("</ul>")
+            in_ul = False
 
-        # H2
-        elif line.startswith("## "):
-            pdf.ln(3)
-            pdf.set_font("Helvetica", "B", 13)
-            pdf.set_text_color(26, 77, 140)
-            pdf.multi_cell(0, 8, _ascii(line[3:].strip()))
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_draw_color(200, 210, 230)
-            y = pdf.get_y()
-            pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
-            pdf.ln(3)
-
-        # H3
-        elif line.startswith("### "):
-            pdf.ln(2)
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.set_text_color(50, 50, 50)
-            pdf.multi_cell(0, 7, _ascii(line[4:].strip()))
-            pdf.set_text_color(0, 0, 0)
-            pdf.ln(1)
-
+        # Headings
+        if stripped.startswith("### "):
+            out.append(f"<h4>{_inline_md(stripped[4:])}</h4>")
+        elif stripped.startswith("## "):
+            out.append(f"<h3>{_inline_md(stripped[3:])}</h3>")
+        elif stripped.startswith("# "):
+            out.append(f"<h3>{_inline_md(stripped[2:])}</h3>")
         # Horizontal rule
-        elif line.strip() == "---":
-            pdf.ln(2)
-            pdf.set_draw_color(200, 200, 200)
-            pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-            pdf.ln(4)
-
-        # Bold verdict line: **Rating**: ...
-        elif line.startswith("**Rating**") or line.startswith("**Verdict**"):
-            pdf.set_font("Helvetica", "B", 12)
-            pdf.set_fill_color(232, 245, 238)
-            pdf.set_text_color(26, 107, 60)
-            pdf.multi_cell(0, 8, _strip_md(line), fill=True)
-            pdf.set_text_color(0, 0, 0)
-            pdf.ln(2)
-
-        # Bold line
-        elif line.startswith("**") and line.endswith("**") and len(line) > 4:
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.multi_cell(0, 6, _strip_md(line))
-            pdf.ln(1)
-
-        # Bullet
-        elif line.strip().startswith("- ") or line.strip().startswith("* "):
-            pdf.set_font("Helvetica", "", 10)
-            text = _strip_md(line.strip()[2:])
-            pdf.set_x(pdf.l_margin + 5)
-            pdf.cell(4, 6, "-")
-            pdf.multi_cell(0, 6, text)
-
-        # Empty line
-        elif line.strip() == "":
-            pdf.ln(2)
-
-        # Normal paragraph text
+        elif stripped == "---":
+            out.append("<hr>")
+        # Empty line → paragraph break
+        elif not stripped:
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            out.append("<p></p>")
+        # Normal text
         else:
-            pdf.set_font("Helvetica", "", 10)
-            pdf.set_text_color(30, 30, 30)
-            clean = _strip_md(line)
-            if clean.strip():
-                pdf.multi_cell(0, 6, clean)
-                pdf.ln(1)
+            out.append(f"<p>{_inline_md(stripped)}</p>")
 
-        i += 1
+    if in_ul:
+        out.append("</ul>")
 
-    pdf.output(str(output_path))
+    return "\n".join(out)
 
 
-def _strip_md(text: str) -> str:
-    """Remove Markdown formatting and sanitize for Latin-1 PDF rendering."""
-    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
-    text = re.sub(r"\*(.+?)\*", r"\1", text)
-    text = re.sub(r"__(.+?)__", r"\1", text)
-    text = re.sub(r"_(.+?)_", r"\1", text)
-    text = re.sub(r"`(.+?)`", r"\1", text)
-    text = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", text)
-    return _ascii(text)
+def _inline_md(text: str) -> str:
+    """Convert inline Markdown (bold, italic, code) to HTML."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(r"\*(.+?)\*",     r"<em>\1</em>",          text)
+    text = re.sub(r"`(.+?)`",       r"<code>\1</code>",       text)
+    text = re.sub(r"\[(.+?)\]\(.+?\)", r"\1",                 text)
+    return text
 
 
-# ── Main analysis + report generation ────────────────────────────────────────
+# ── HTML report template ──────────────────────────────────────────────────────
 
-async def run(ticker: str, trade_date: str, output_stem: str, pdf: bool) -> None:
+def build_html(ticker: str, trade_date: str, state) -> str:
+    verdict_class, verdict_label = _verdict_color(state.final_decision or "")
+
+    def section(title: str, content: str) -> str:
+        return f"""
+        <section>
+          <h2>{title}</h2>
+          <div class="section-body">
+            {_md_to_html(content)}
+          </div>
+        </section>"""
+
+    debate_html = ""
+    if state.bull_case:
+        debate_html += f"""
+        <div class="debate-side bull">
+          <div class="debate-label">Bull Case</div>
+          {_md_to_html(state.bull_case)}
+        </div>"""
+    if state.bear_case:
+        debate_html += f"""
+        <div class="debate-side bear">
+          <div class="debate-label">Bear Case</div>
+          {_md_to_html(state.bear_case)}
+        </div>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{ticker} Research Report — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {{
+    --bg:             #fafafa;
+    --surface:        #ffffff;
+    --surface-2:      #f4f4f4;
+    --border:         #e0e0e0;
+    --text-primary:   #1a1a1a;
+    --text-secondary: #4a4a4a;
+    --text-tertiary:  #8a8a8a;
+    --accent:         #1e4d8c;
+    --bullish:        #1a6b3c;
+    --bullish-bg:     #e8f5ee;
+    --bearish:        #8b1a1a;
+    --bearish-bg:     #fbeaea;
+    --neutral:        #4a4a4a;
+    --neutral-bg:     #f0f0f0;
+    --font-display:   'Playfair Display', Georgia, serif;
+    --font-body:      'Source Serif 4', Georgia, serif;
+    --font-ui:        'DM Sans', system-ui, sans-serif;
+    --font-mono:      'JetBrains Mono', monospace;
+  }}
+
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+  body {{
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.65;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }}
+
+  /* ── Report shell ── */
+  .report {{
+    max-width: 820px;
+    margin: 0 auto;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    min-height: 100vh;
+  }}
+
+  /* ── Header ── */
+  .report-header {{
+    padding: 48px 56px 36px;
+    border-bottom: 2px solid var(--border);
+  }}
+  .report-brand {{
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 20px;
+  }}
+  .report-ticker {{
+    font-family: var(--font-display);
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }}
+  .report-meta {{
+    font-family: var(--font-ui);
+    font-size: 14px;
+    color: var(--text-tertiary);
+    margin-bottom: 28px;
+  }}
+
+  /* ── Verdict badge ── */
+  .verdict-block {{
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+  }}
+  .verdict-block.bullish {{ background: var(--bullish-bg); border: 1px solid #b8dfc8; }}
+  .verdict-block.bearish {{ background: var(--bearish-bg); border: 1px solid #e8b4b4; }}
+  .verdict-block.neutral {{ background: var(--neutral-bg); border: 1px solid var(--border); }}
+  .verdict-badge {{
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }}
+  .bullish .verdict-badge {{ color: var(--bullish); background: #c8ecd6; }}
+  .bearish .verdict-badge {{ color: var(--bearish); background: #f5c6c6; }}
+  .neutral .verdict-badge {{ color: var(--neutral); background: #ddd; }}
+  .verdict-summary {{
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }}
+
+  /* ── Sections ── */
+  section {{
+    padding: 36px 56px;
+    border-bottom: 1px solid var(--surface-2);
+  }}
+  section:last-of-type {{ border-bottom: none; }}
+
+  h2 {{
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }}
+  h3, h4 {{
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin: 20px 0 8px;
+  }}
+  .section-rule {{
+    height: 1px;
+    background: var(--border);
+    margin-bottom: 20px;
+  }}
+  .section-body p {{
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.7;
+  }}
+  .section-body p:last-child {{ margin-bottom: 0; }}
+  .section-body ul {{
+    margin: 8px 0 12px 20px;
+    color: var(--text-secondary);
+  }}
+  .section-body li {{
+    font-size: 15px;
+    margin-bottom: 6px;
+    line-height: 1.6;
+  }}
+  .section-body strong {{ color: var(--text-primary); font-weight: 600; }}
+  .section-body em {{ color: var(--text-secondary); }}
+  .section-body code {{
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }}
+  .section-body hr {{
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }}
+  .section-body p:empty {{ margin-bottom: 4px; }}
+
+  /* ── Full decision section ── */
+  .decision-body {{
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.75;
+    color: var(--text-primary);
+  }}
+  .decision-body p {{ margin-bottom: 14px; }}
+  .decision-body strong {{ color: var(--text-primary); font-weight: 600; }}
+
+  /* ── Debate columns ── */
+  .debate-grid {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 4px;
+  }}
+  .debate-side {{
+    padding: 20px;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.65;
+  }}
+  .debate-side.bull {{
+    background: var(--bullish-bg);
+    border: 1px solid #b8dfc8;
+  }}
+  .debate-side.bear {{
+    background: var(--bearish-bg);
+    border: 1px solid #e8b4b4;
+  }}
+  .debate-label {{
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }}
+  .bull .debate-label {{ color: var(--bullish); }}
+  .bear .debate-label {{ color: var(--bearish); }}
+  .debate-side p {{ color: var(--text-secondary); margin-bottom: 8px; font-size: 14px; }}
+  .debate-side ul {{ margin-left: 16px; color: var(--text-secondary); }}
+  .debate-side li {{ font-size: 14px; margin-bottom: 5px; }}
+
+  /* ── Footer / disclaimer ── */
+  .report-footer {{
+    padding: 24px 56px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+  }}
+  .disclaimer {{
+    font-family: var(--font-ui);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    line-height: 1.6;
+  }}
+  .disclaimer strong {{ color: var(--text-secondary); }}
+
+  /* ── Print / PDF ── */
+  @media print {{
+    body {{ background: white; }}
+    .report {{
+      max-width: none;
+      border: none;
+    }}
+    section {{ break-inside: avoid; }}
+    .debate-grid {{ break-inside: avoid; }}
+  }}
+</style>
+</head>
+<body>
+<div class="report">
+
+  <!-- Header -->
+  <header class="report-header">
+    <p class="report-brand">AI Analyst Weekly &nbsp;·&nbsp; Research Report</p>
+    <h1 class="report-ticker">{ticker}</h1>
+    <p class="report-meta">Analysis date: {trade_date} &nbsp;·&nbsp; Generated by 8 specialized AI analysts</p>
+
+    <!-- Verdict -->
+    <div class="verdict-block {verdict_class}">
+      <span class="verdict-badge">{verdict_label}</span>
+      <span class="verdict-summary">{_inline_md((state.final_decision or '').split(chr(10))[0])}</span>
+    </div>
+  </header>
+
+  <!-- Full Decision -->
+  <section>
+    <h2>Investment Decision</h2>
+    <div class="section-rule"></div>
+    <div class="decision-body">
+      {_md_to_html(state.final_decision)}
+    </div>
+  </section>
+
+  <!-- Research Manager Plan -->
+  {section("Research Manager Summary", state.investment_plan)}
+
+  <!-- Trader Proposal -->
+  {section("Trader Proposal", state.trader_proposal)}
+
+  <!-- Bull vs Bear -->
+  <section>
+    <h2>Bull vs. Bear Debate</h2>
+    <div class="section-rule"></div>
+    <div class="debate-grid">
+      {debate_html}
+    </div>
+  </section>
+
+  <!-- Analyst Reports -->
+  {section("Fundamental Analysis", state.fundamentals_report)}
+  {section("Technical Analysis", state.market_report)}
+  {section("News &amp; Macro", state.news_report)}
+  {section("Sentiment Analysis", state.sentiment_report)}
+
+  <!-- Footer -->
+  <footer class="report-footer">
+    <p class="disclaimer">
+      <strong>Educational research only. Not investment advice.</strong>
+      This report is generated by artificial intelligence for informational purposes only.
+      Nothing here constitutes a recommendation to buy, sell, or hold any security.
+      AI systems can produce errors, hallucinations, and reflect biases in training data.
+      Past analysis accuracy does not predict future results.
+      Always consult a licensed financial advisor before making investment decisions.
+      AI Analyst Weekly is not a registered investment adviser.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>"""
+
+
+# ── PDF via Playwright ────────────────────────────────────────────────────────
+
+def html_to_pdf(html_path: Path, pdf_path: Path) -> None:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  ⚠  playwright not installed — skipping PDF.")
+        print("     Run: uv pip install playwright && python -m playwright install chromium")
+        return
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        # Load fonts before printing
+        page.goto(f"file://{html_path.resolve()}", wait_until="networkidle")
+        page.pdf(
+            path=str(pdf_path),
+            format="A4",
+            print_background=True,
+            margin={"top": "16mm", "bottom": "16mm", "left": "14mm", "right": "14mm"},
+        )
+        browser.close()
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+async def run(ticker: str, trade_date: str, stem: str, make_pdf: bool) -> None:
     from tradingagents.pipeline.runner import run_analysis
 
-    print(f"\n  AI Analyst Weekly — Sample Report Generator")
-    print(f"  {'─' * 44}")
-    print(f"  Ticker:     {ticker.upper()}")
-    print(f"  Date:       {trade_date}")
-    print(f"  Analysts:   Fundamental · Technical · Sentiment · News")
-    print(f"  Synthesis:  Bull/Bear Debate → Research Manager → Portfolio Manager")
+    print(f"\n  AI Analyst Weekly — Report Generator")
+    print(f"  {'─' * 38}")
+    print(f"  Ticker : {ticker.upper()}")
+    print(f"  Date   : {trade_date}")
     print()
 
-    AGENT_ORDER = [
-        "Fundamental Analyst", "Technical Analyst", "News Analyst", "Sentiment Analyst",
-        "Bull Researcher", "Bear Researcher", "Research Manager", "Trader", "Portfolio Manager",
-    ]
-    agents_done = []
+    TOTAL = 9
+    agents_done: list[str] = []
 
-    async def on_agent_complete(agent_name, state):
+    async def on_agent_complete(agent_name: str, state) -> None:
         if agent_name not in agents_done:
             agents_done.append(agent_name)
         n = len(agents_done)
-        total = len(AGENT_ORDER)
         summary = state.agent_summaries.get(agent_name, "")
-        suffix = f" -- {summary}" if summary else ""
-        print(f"  [{n}/{total}] OK {agent_name}{suffix}")
+        note = f"  {summary[:60]}" if summary else ""
+        print(f"  [{n}/{TOTAL}] {agent_name}{note}")
 
     state = await run_analysis(
         ticker=ticker,
@@ -206,126 +477,39 @@ async def run(ticker: str, trade_date: str, output_stem: str, pdf: bool) -> None
         on_agent_complete=on_agent_complete,
     )
 
-    # ── Build Markdown ────────────────────────────────────────────────────────
+    # Build and save HTML
+    html = build_html(ticker, trade_date, state)
+    out = Path(stem)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    html_path = out.with_suffix(".html")
+    html_path.write_text(html, encoding="utf-8")
+    print(f"\n  HTML  -> {html_path.resolve()}")
 
-    verdict_first_line = (state.final_decision or "").split("\n")[0]
+    # Convert to PDF
+    if make_pdf:
+        pdf_path = out.with_suffix(".pdf")
+        print(f"  PDF   -> {pdf_path.resolve()}  (rendering...)", end="", flush=True)
+        html_to_pdf(html_path, pdf_path)
+        print(" done")
 
-    report_md = f"""# AI Analyst Weekly — {ticker.upper()} Research Report
-Generated: {trade_date}
-
-> **Educational research only. Not investment advice.**
-> AI-generated analysis for informational purposes only. Nothing here
-> constitutes a recommendation to buy, sell, or hold any security.
-> Always consult a licensed financial advisor before making investment decisions.
-
----
-
-## Verdict
-
-{state.final_decision or "Analysis unavailable — check logs."}
-
----
-
-## Fundamental Analysis
-
-{state.fundamentals_report or "Unavailable."}
-
----
-
-## Technical Analysis
-
-{state.market_report or "Unavailable."}
-
----
-
-## News & Macro
-
-{state.news_report or "Unavailable."}
-
----
-
-## Sentiment
-
-{state.sentiment_report or "Unavailable."}
-
----
-
-## Bull vs. Bear Debate
-
-{state.bull_case or "Unavailable."}
-
-{state.bear_case or ""}
-
----
-
-## Research Manager Summary
-
-{state.investment_plan or "Unavailable."}
-
----
-
-## Trader Proposal
-
-{state.trader_proposal or "Unavailable."}
-
----
-
-*Generated by AI Analyst Weekly · {trade_date} · Not investment advice*
-"""
-
-    # ── Save Markdown ─────────────────────────────────────────────────────────
-
-    md_path = Path(f"{output_stem}.md")
-    md_path.parent.mkdir(parents=True, exist_ok=True)
-    md_path.write_text(report_md, encoding="utf-8")
-
-    # ── Save PDF ──────────────────────────────────────────────────────────────
-
-    if pdf:
-        pdf_path = Path(f"{output_stem}.pdf")
-        generate_pdf(report_md, pdf_path, ticker, trade_date)
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-
-    print()
-    print(f"  ✓ Markdown  → {md_path.resolve()}")
-    if pdf:
-        pdf_path = Path(f"{output_stem}.pdf")
-        if pdf_path.exists():
-            print(f"  ✓ PDF       → {pdf_path.resolve()}")
-    print()
-    print(f"  {verdict_first_line}")
-    print()
+    # Print verdict
+    verdict_line = (state.final_decision or "").split("\n")[0]
+    print(f"\n  {verdict_line}\n")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate an AI Analyst Weekly sample report (Markdown + PDF)"
-    )
-    parser.add_argument("ticker", help="Stock ticker symbol, e.g. NVDA")
-    parser.add_argument(
-        "trade_date",
-        nargs="?",
-        default=str(date.today()),
-        help="Analysis date YYYY-MM-DD (default: today)",
-    )
-    parser.add_argument(
-        "--output", "-o",
-        default=None,
-        help="Output path stem, no extension (default: reports/<TICKER>_<DATE>)",
-    )
-    parser.add_argument(
-        "--no-pdf",
-        action="store_true",
-        help="Skip PDF generation, produce Markdown only",
-    )
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate an AI Analyst Weekly report")
+    parser.add_argument("ticker", help="Ticker symbol, e.g. NVDA")
+    parser.add_argument("trade_date", nargs="?", default=str(date.today()),
+                        help="Analysis date YYYY-MM-DD (default: today)")
+    parser.add_argument("--output", "-o", default=None,
+                        help="Output path without extension (default: reports/<TICKER>_<DATE>)")
+    parser.add_argument("--no-pdf", action="store_true", help="HTML only, skip PDF")
     args = parser.parse_args()
 
     ticker = args.ticker.upper().strip()
-    trade_date = args.trade_date
-    stem = args.output or f"reports/{ticker}_{trade_date}"
-
-    asyncio.run(run(ticker, trade_date, stem, pdf=not args.no_pdf))
+    stem = args.output or f"reports/{ticker}_{args.trade_date}"
+    asyncio.run(run(ticker, args.trade_date, stem, make_pdf=not args.no_pdf))
 
 
 if __name__ == "__main__":
