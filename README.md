@@ -300,8 +300,8 @@ export OPENAI_API_KEY=...          # OpenAI (GPT)
 export DEEPSEEK_API_KEY=...        # DeepSeek
 export DASHSCOPE_API_KEY=...       # Qwen (Alibaba)
 export ZHIPU_API_KEY=...           # GLM (Zhipu)
-export MINIMAX_API_KEY=...         # MiniMax (global, api.minimax.io)
-export MINIMAX_CN_API_KEY=...      # MiniMax (China, api.minimaxi.com)
+export MINIMAX_API_KEY=...         # MiniMax — Global (api.minimax.io, M2.x, 204K ctx)
+export MINIMAX_CN_API_KEY=...      # MiniMax — China (api.minimaxi.com, M2.x, 204K ctx)
 export OPENROUTER_API_KEY=...      # OpenRouter
 export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage (optional)
 ```
