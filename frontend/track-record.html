@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Track Record — AI Analyst Weekly</title>
+<title>AI Track Record — AI Analyst Weekly</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -113,6 +113,11 @@ body { font-family: var(--font-body); font-size: 16px; background: var(--bg); co
 <main class="main">
   <h1 class="page-heading">AI Track Record</h1>
   <p class="page-subheading">How our analysts' verdicts performed against actual price outcomes over 30 and 90 days.</p>
+
+  <!-- Informational notice -->
+  <div style="background:#fff8e6;border:1px solid #e8d88a;border-radius:4px;padding:10px 14px;margin-bottom:24px;font-family:'DM Sans',sans-serif;font-size:12px;color:#7a5c00;">
+    &#9888; Track record data is for informational purposes only. Past accuracy does not predict future results.
+  </div>
 
   <!-- Stats -->
   <div class="stats-row" role="region" aria-label="Track record summary">
@@ -231,8 +236,9 @@ body { font-family: var(--font-body); font-size: 16px; background: var(--bg); co
     </div>
   </div>
 
-  <div class="disclaimer">
-    <p>Track record measures whether the stock price moved in the direction of the verdict within 30 and 90 days, relative to the S&P 500. A bullish verdict is correct if the stock outperforms SPX by at least 2% over the period. Past accuracy is not predictive of future performance. This information is for educational purposes only and does not constitute investment advice.</p>
+  <div class="disclaimer" role="note">
+    <p><strong>Important: Past performance is not indicative of future results.</strong> Track record statistics are provided for informational and educational purposes only. Accuracy percentages measure historical algorithmic output against subsequent price movements and do not constitute a promise, guarantee, or prediction of future analysis quality or investment returns.</p>
+    <p style="margin-top:10px;">AI systems can produce errors, reflect biases, and make incorrect assessments. This data is not audited by any financial regulatory body. AI Analyst Weekly is not a registered investment adviser. Nothing here should be interpreted as investment advice or a solicitation to buy or sell any security.</p>
   </div>
 </main>
 </body>

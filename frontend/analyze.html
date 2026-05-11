@@ -611,6 +611,22 @@ window.dispatchEvent(new Event('pretextReady'));
   }
   .example-chip:hover { background: #dde8f5; }
 
+  /* ─── Research disclaimer ───────────────────────────────────── */
+  .research-disclaimer {
+    padding: 12px 16px;
+    background: #f4f4f4;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 12px;
+    color: #4a4a4a;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .research-disclaimer strong {
+    color: #1a1a1a;
+  }
+
   /* ─── Responsive ─────────────────────────────────────────────── */
   @media (max-width: 768px) {
     body { flex-direction: column; }
@@ -782,6 +798,11 @@ window.dispatchEvent(new Event('pretextReady'));
           This conviction level suggests maintaining or adding to the position.
         </div>
 
+        <!-- Research disclaimer — shown with every verdict -->
+        <div class="research-disclaimer" role="note" aria-label="Research disclaimer">
+          <strong>For informational purposes only.</strong> This AI-generated analysis is educational research, not investment advice. Verdicts reflect algorithmic assessment, not personalized financial recommendations. Past accuracy does not predict future results. Always consult a licensed financial advisor before making investment decisions.
+        </div>
+
         <!-- Collapsible sections -->
         <button class="section-toggle" aria-expanded="false" onclick="toggleSection(this)">
           <div>
@@ -836,7 +857,7 @@ window.dispatchEvent(new Event('pretextReady'));
             <button class="btn-decision" onclick="logDecision('skip')">Skip — not trading</button>
           </div>
           <p class="decision-prompt-note">
-            Log your thinking — we'll track whether the analysis held up.
+            Logging your thinking for personal reflection only. This is not financial advice. Consult a licensed advisor before making investment decisions.
           </p>
         </div>
       </div>
