@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Financial Disclaimer — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafafa; --surface: #ffffff; --border: #e0e0e0;
+  --text-primary: #1a1a1a; --text-secondary: #4a4a4a; --text-tertiary: #8a8a8a;
+  --accent: #1e4d8c; --accent-hover: #163a6b;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+  --radius-btn: 6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; background: var(--bg); color: var(--text-primary); }
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 48px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-brand {
+  font-family: var(--font-display); font-size: 15px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-primary); text-decoration: none;
+}
+.nav-links { display: flex; align-items: center; gap: 8px; }
+.nav-link {
+  font-family: var(--font-ui); font-size: 14px; font-weight: 500;
+  color: var(--text-secondary); text-decoration: none;
+  padding: 8px 14px; border-radius: var(--radius-btn);
+  transition: color 0.15s, background 0.15s;
+}
+.nav-link:hover { color: var(--text-primary); background: #f4f4f4; }
+.nav-cta {
+  font-family: var(--font-ui); font-size: 14px; font-weight: 600;
+  color: #ffffff; background: var(--accent);
+  text-decoration: none; padding: 9px 20px;
+  border-radius: var(--radius-btn); transition: background 0.15s;
+}
+.nav-cta:hover { background: var(--accent-hover); }
+
+.content-wrap { max-width: 680px; margin: 0 auto; padding: 64px 48px 80px; }
+
+.page-label {
+  font-family: var(--font-ui); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 16px;
+}
+
+.page-heading {
+  font-family: var(--font-display); font-size: 40px; font-weight: 700;
+  color: var(--text-primary); line-height: 1.15; margin-bottom: 32px;
+  letter-spacing: -0.01em;
+}
+
+.disclaimer-body {
+  font-family: var(--font-body); font-size: 18px; color: var(--text-secondary);
+  line-height: 1.75; margin-bottom: 20px;
+}
+
+.disclaimer-rule {
+  height: 1px; background: var(--border); margin: 36px 0;
+}
+
+.disclaimer-note {
+  font-family: var(--font-ui); font-size: 14px; color: var(--text-tertiary);
+  line-height: 1.6;
+}
+
+.footer {
+  border-top: 1px solid var(--border); background: var(--surface);
+  padding: 28px 48px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.footer-brand {
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary);
+}
+.footer-links {
+  font-family: var(--font-ui); font-size: 12px; color: var(--text-tertiary);
+  display: flex; gap: 16px;
+}
+.footer-links a { color: var(--text-tertiary); text-decoration: none; }
+.footer-links a:hover { color: var(--text-primary); }
+
+@media (max-width: 640px) {
+  .nav { padding: 0 20px; }
+  .nav-link { display: none; }
+  .content-wrap { padding: 40px 20px 60px; }
+  .page-heading { font-size: 30px; }
+  .footer { padding: 20px; flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Site navigation">
+  <a class="nav-brand" href="index.html">AI Analyst Weekly</a>
+  <div class="nav-links">
+    <a class="nav-link" href="signin.html">Sign in</a>
+    <a class="nav-cta" href="signup.html">Start free trial</a>
+  </div>
+</nav>
+
+<main>
+  <div class="content-wrap">
+    <p class="page-label">Legal</p>
+    <h1 class="page-heading">Financial Disclaimer</h1>
+
+    <p class="disclaimer-body">
+      AI Analyst Weekly provides AI-generated research for educational and informational
+      purposes only. Nothing on this platform constitutes investment advice, a recommendation
+      to buy or sell any security, or a solicitation of any investment.
+    </p>
+
+    <p class="disclaimer-body">
+      Past analysis accuracy does not predict future results. Markets are inherently uncertain,
+      and AI-generated analysis is subject to error, bias, and the limitations of the underlying
+      models and data sources.
+    </p>
+
+    <p class="disclaimer-body">
+      Always consult a licensed financial advisor before making any investment decisions.
+      AI Analyst Weekly is not a registered investment adviser, broker-dealer, or financial
+      planner.
+    </p>
+
+    <div class="disclaimer-rule"></div>
+
+    <p class="disclaimer-note">
+      AI Analyst Weekly is not affiliated with any financial institution, brokerage, or
+      regulatory body. References to specific securities are for analytical illustration
+      only and do not constitute endorsements or recommendations.
+    </p>
+  </div>
+</main>
+
+<footer class="footer" role="contentinfo">
+  <span class="footer-brand">AI Analyst Weekly</span>
+  <div class="footer-links">
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
+    <a href="disclaimer.html">Disclaimer</a>
+  </div>
+</footer>
+
+</body>
+</html>

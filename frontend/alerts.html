@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Red Flag Alerts — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f4; --surface-3: #eeeeee;
+  --border: #e0e0e0; --text-primary: #1a1a1a; --text-secondary: #4a4a4a;
+  --text-tertiary: #8a8a8a; --accent: #1e4d8c; --accent-hover: #163a6b;
+  --accent-light: #eef2f8; --bullish: #1a6b3c; --bullish-bg: #e8f5ee;
+  --bearish: #8b1a1a; --bearish-bg: #fbeaea; --neutral: #4a4a4a; --neutral-bg: #f0f0f0;
+  --warn: #7a5c00; --warn-bg: #fff8e6;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --sidebar-w: 240px; --radius: 4px; --radius-btn: 6px; --radius-badge: 3px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: var(--font-body); font-size: 16px; line-height: 1.6; background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; display: flex; }
+
+/* Sidebar */
+.sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; flex-shrink: 0; }
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); text-decoration: none; display: block; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.sidebar-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-family: var(--font-ui); font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; transition: background .12s, color .12s; }
+.sidebar-item:hover { background: var(--surface-2); color: var(--text-primary); }
+.sidebar-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+.sidebar-user { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: #fff; flex-shrink: 0; }
+.user-name { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.user-plan { font-family: var(--font-ui); font-size: 11px; color: var(--text-tertiary); }
+
+/* Main */
+.main { flex: 1; overflow-y: auto; padding: 40px 48px; min-width: 0; }
+
+/* Page header */
+.page-heading { font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.page-subheading { font-family: var(--font-body); font-size: 16px; color: var(--text-secondary); margin-bottom: 28px; }
+
+/* Sample data notice */
+.sample-notice { background: var(--warn-bg); border: 1px solid #e8d5a0; border-radius: var(--radius); padding: 10px 16px; margin-bottom: 24px; font-family: var(--font-ui); font-size: 13px; color: var(--warn); }
+
+/* Filter bar */
+.filter-bar { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
+.filter-chip { font-family: var(--font-ui); font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
+.filter-chip:hover { background: var(--surface-2); color: var(--text-primary); }
+.filter-chip.active { background: var(--accent-light); color: var(--accent); border-color: #c5d5e8; font-weight: 600; }
+
+/* Alert cards */
+.alert-list { display: flex; flex-direction: column; gap: 12px; }
+
+.alert-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+.alert-card-top { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+.alert-ticker { font-family: var(--font-mono); font-size: 20px; font-weight: 500; color: var(--text-primary); letter-spacing: .04em; flex-shrink: 0; }
+.alert-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
+
+.alert-type-badge { font-family: var(--font-ui); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; border-radius: var(--radius-badge); }
+.alert-type-badge.price { color: var(--warn); background: var(--warn-bg); }
+.alert-type-badge.earnings { color: var(--accent); background: var(--accent-light); }
+.alert-type-badge.news { color: var(--neutral); background: var(--neutral-bg); }
+
+.alert-direction { font-family: var(--font-mono); font-size: 14px; font-weight: 500; }
+.alert-direction.up { color: var(--bullish); }
+.alert-direction.down { color: var(--bearish); }
+
+.alert-summary { font-family: var(--font-body); font-size: 15px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 12px; }
+
+.alert-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.alert-ts { font-family: var(--font-ui); font-size: 12px; color: var(--text-tertiary); }
+.alert-cta { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; transition: color .12s; }
+.alert-cta:hover { color: var(--accent-hover); }
+
+/* Empty state */
+.empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 56px 40px; text-align: center; max-width: 520px; }
+.empty-shield { width: 52px; height: 52px; border: 2px solid var(--border); border-radius: 12px; background: var(--surface-2); margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--text-tertiary); }
+.empty-heading { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+.empty-body { font-family: var(--font-body); font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px; }
+.empty-checked { font-family: var(--font-ui); font-size: 12px; color: var(--text-tertiary); }
+
+@media (max-width: 768px) {
+  body { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar-nav { display: flex; padding: 8px 16px; overflow-x: auto; }
+  .sidebar-item { padding: 8px 12px; white-space: nowrap; flex-shrink: 0; }
+  .sidebar-user { display: none; }
+  .main { padding: 24px 20px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar" aria-label="Application navigation">
+  <a class="sidebar-brand" href="dashboard.html">AI Analyst Weekly</a>
+  <div class="sidebar-nav">
+    <a class="sidebar-item" href="dashboard.html">⬚ Dashboard</a>
+    <a class="sidebar-item" href="analyze.html">◷ Analyze</a>
+    <a class="sidebar-item active" href="watchlist.html">◈ Watchlist</a>
+    <a class="sidebar-item" href="portfolio.html">▭ Portfolio</a>
+    <div class="sidebar-divider"></div>
+    <a class="sidebar-item" href="journal.html">≡ Journal</a>
+    <a class="sidebar-item" href="settings.html">⚙ Settings</a>
+  </div>
+  <div class="sidebar-user">
+    <div class="avatar" id="user-avatar">V</div>
+    <div>
+      <div class="user-name" id="user-name">Loading…</div>
+      <div class="user-plan">Pro plan · Active</div>
+    </div>
+  </div>
+</nav>
+
+<main class="main" aria-labelledby="page-heading">
+  <h1 class="page-heading" id="page-heading">Red Flag Alerts</h1>
+  <p class="page-subheading">Material events detected on your watchlist. You were notified within 60 seconds.</p>
+
+  <div class="sample-notice" role="note">
+    Showing sample alerts — your live alerts appear here as they fire.
+  </div>
+
+  <div class="filter-bar" role="group" aria-label="Filter alerts by type">
+    <button class="filter-chip active" data-filter="all" onclick="setFilter('all', this)">All</button>
+    <button class="filter-chip" data-filter="PRICE_MOVE" onclick="setFilter('PRICE_MOVE', this)">Price Moves</button>
+    <button class="filter-chip" data-filter="EARNINGS" onclick="setFilter('EARNINGS', this)">Earnings</button>
+    <button class="filter-chip" data-filter="NEWS" onclick="setFilter('NEWS', this)">News</button>
+  </div>
+
+  <div class="alert-list" id="alert-list" aria-live="polite">
+    <!-- Populated by JS -->
+  </div>
+</main>
+
+<script>
+// Auth guard
+(async function() {
+  if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return;
+  try {
+    const { createClient } = supabase;
+    const client = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = 'signin.html';
+      return;
+    }
+    const email = session.user.email || '';
+    const initials = email ? email[0].toUpperCase() : 'U';
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-name').textContent = email;
+  } catch (e) {
+    // Supabase not configured — dev mode, show sample data
+    document.getElementById('user-name').textContent = 'Dev mode';
+  }
+})();
+
+const SAMPLE_ALERTS = [
+  {
+    ticker: "NVDA",
+    type: "PRICE_MOVE",
+    pct: -8.3,
+    summary: "Dropped on heavy volume — likely technical profit-taking. No fundamental news.",
+    ts: "May 9, 2026 · 10:04am ET"
+  },
+  {
+    ticker: "AAPL",
+    type: "NEWS",
+    pct: null,
+    summary: "EU DMA compliance filing accepted. Regulatory overhang reduced.",
+    ts: "May 6, 2026 · 11:14am ET"
+  },
+  {
+    ticker: "NVDA",
+    type: "PRICE_MOVE",
+    pct: 5.2,
+    summary: "Recovery after Friday's drop. Volume normalizing.",
+    ts: "May 7, 2026 · 4:02pm ET"
+  }
+];
+
+let currentFilter = 'all';
+
+function typeBadgeClass(type) {
+  if (type === 'PRICE_MOVE') return 'price';
+  if (type === 'EARNINGS') return 'earnings';
+  return 'news';
+}
+
+function typeBadgeLabel(type) {
+  if (type === 'PRICE_MOVE') return 'PRICE MOVE';
+  if (type === 'EARNINGS') return 'EARNINGS';
+  return 'NEWS';
+}
+
+function renderAlerts(filter) {
+  const list = document.getElementById('alert-list');
+  const visible = filter === 'all' ? SAMPLE_ALERTS : SAMPLE_ALERTS.filter(a => a.type === filter);
+
+  if (visible.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state" role="status">
+        <div class="empty-shield" aria-hidden="true">⊘</div>
+        <h2 class="empty-heading">No alerts yet</h2>
+        <p class="empty-body">
+          We're monitoring your watchlist 24/7. When NVDA drops 8% or reports earnings,
+          you'll know in under 60 seconds.
+        </p>
+        <p class="empty-checked" id="last-checked">Last checked: <span id="checked-ts">&hellip;</span></p>
+      </div>`;
+    startCheckedTimer();
+    return;
+  }
+
+  list.innerHTML = visible.map(a => {
+    const hasPct = a.pct !== null && a.pct !== undefined;
+    const isUp = hasPct && a.pct > 0;
+    const directionHtml = hasPct
+      ? `<span class="alert-direction ${isUp ? 'up' : 'down'}" aria-label="${isUp ? 'Up' : 'Down'} ${Math.abs(a.pct)}%">
+           ${isUp ? '↑' : '↓'} ${Math.abs(a.pct)}%
+         </span>`
+      : '';
+
+    return `
+      <article class="alert-card" data-type="${a.type}">
+        <div class="alert-card-top">
+          <span class="alert-ticker" aria-label="${a.ticker}">${a.ticker}</span>
+          <div class="alert-badges">
+            <span class="alert-type-badge ${typeBadgeClass(a.type)}">${typeBadgeLabel(a.type)}</span>
+            ${directionHtml}
+          </div>
+        </div>
+        <p class="alert-summary">${a.summary}</p>
+        <div class="alert-footer">
+          <span class="alert-ts">${a.ts}</span>
+          <a class="alert-cta" href="analyze.html?ticker=${encodeURIComponent(a.ticker)}">Run full analysis →</a>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderAlerts(filter);
+}
+
+function startCheckedTimer() {
+  function tick() {
+    const el = document.getElementById('checked-ts');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  }
+  tick();
+  setInterval(tick, 30000);
+}
+
+// Try to fetch live alerts; fall back to sample data
+async function loadAlerts() {
+  try {
+    const apiUrl = (window.API_URL || '') + '/alerts';
+    const res = await fetch(apiUrl, { credentials: 'include' });
+    if (!res.ok) throw new Error('not ok');
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      // Live data available — replace sample notice
+      document.querySelector('.sample-notice').style.display = 'none';
+      // Use SAMPLE_ALERTS as fallback structure; swap in live data if schema matches
+      SAMPLE_ALERTS.length = 0;
+      data.forEach(d => SAMPLE_ALERTS.push(d));
+    }
+  } catch (_) {
+    // Backend not available — sample data stays
+  }
+  renderAlerts(currentFilter);
+}
+
+loadAlerts();
+</script>
+</body>
+</html>

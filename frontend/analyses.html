@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analysis History — AI Analyst Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f4; --surface-3: #eeeeee;
+  --border: #e0e0e0; --text-primary: #1a1a1a; --text-secondary: #4a4a4a;
+  --text-tertiary: #8a8a8a; --accent: #1e4d8c; --accent-hover: #163a6b;
+  --accent-light: #eef2f8; --bullish: #1a6b3c; --bullish-bg: #e8f5ee;
+  --bearish: #8b1a1a; --bearish-bg: #fbeaea; --neutral: #4a4a4a; --neutral-bg: #f0f0f0;
+  --warn: #7a5c00; --warn-bg: #fff8e6;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --sidebar-w: 240px; --radius: 4px; --radius-btn: 6px; --radius-badge: 3px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: var(--font-body); font-size: 16px; line-height: 1.6; background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; display: flex; }
+
+/* Sidebar */
+.sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; flex-shrink: 0; }
+.sidebar-brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); text-decoration: none; display: block; font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.sidebar-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-family: var(--font-ui); font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; transition: background .12s, color .12s; }
+.sidebar-item:hover { background: var(--surface-2); color: var(--text-primary); }
+.sidebar-item.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+.sidebar-user { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: #fff; flex-shrink: 0; }
+.user-name { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.user-plan { font-family: var(--font-ui); font-size: 11px; color: var(--text-tertiary); }
+
+/* Main */
+.main { flex: 1; overflow-y: auto; padding: 40px 48px; min-width: 0; }
+
+.page-heading { font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.page-subheading { font-family: var(--font-body); font-size: 16px; color: var(--text-secondary); margin-bottom: 28px; }
+
+/* Sample data notice */
+.sample-notice { background: var(--warn-bg); border: 1px solid #e8d5a0; border-radius: var(--radius); padding: 10px 16px; margin-bottom: 24px; font-family: var(--font-ui); font-size: 13px; color: var(--warn); }
+
+/* Controls row */
+.controls-row { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-chip { font-family: var(--font-ui); font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
+.filter-chip:hover { background: var(--surface-2); color: var(--text-primary); }
+.filter-chip.active { background: var(--accent-light); color: var(--accent); border-color: #c5d5e8; font-weight: 600; }
+
+.search-input { font-family: var(--font-mono); font-size: 14px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 12px; outline: none; letter-spacing: .04em; text-transform: uppercase; transition: border-color .15s; margin-left: auto; width: 140px; }
+.search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+.search-input::placeholder { text-transform: none; letter-spacing: 0; color: var(--text-tertiary); font-weight: 400; font-family: var(--font-ui); }
+
+/* Analysis list */
+.analyses-list { display: flex; flex-direction: column; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+
+.analysis-row { display: flex; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--surface-2); gap: 14px; text-decoration: none; color: inherit; transition: background .12s; }
+.analysis-row:last-child { border-bottom: none; }
+.analysis-row:hover { background: var(--surface-2); }
+
+.ar-ticker { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: var(--text-primary); letter-spacing: .04em; width: 58px; flex-shrink: 0; }
+
+.ar-badges { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.badge { font-family: var(--font-ui); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--radius-badge); }
+.badge.on-demand { color: var(--accent); background: var(--accent-light); }
+.badge.digest { color: var(--neutral); background: var(--neutral-bg); }
+.badge.bullish { color: var(--bullish); background: var(--bullish-bg); }
+.badge.bearish { color: var(--bearish); background: var(--bearish-bg); }
+.badge.neutral { color: var(--neutral); background: var(--neutral-bg); }
+
+.ar-meta { flex: 1; min-width: 0; }
+.ar-summary { font-family: var(--font-body); font-size: 14px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-date { font-family: var(--font-ui); font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+.ar-arrow { font-size: 16px; color: var(--text-tertiary); flex-shrink: 0; }
+
+/* Empty state */
+.empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 56px 40px; text-align: center; max-width: 480px; }
+.empty-heading { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+.empty-body { font-family: var(--font-body); font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 24px; }
+.btn-primary { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-ui); font-size: 14px; font-weight: 600; color: #fff; background: var(--accent); text-decoration: none; padding: 10px 20px; border-radius: var(--radius-btn); transition: background .15s; }
+.btn-primary:hover { background: var(--accent-hover); }
+
+@media (max-width: 768px) {
+  body { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar-nav { display: flex; padding: 8px 16px; overflow-x: auto; }
+  .sidebar-item { padding: 8px 12px; white-space: nowrap; flex-shrink: 0; }
+  .sidebar-user { display: none; }
+  .main { padding: 24px 20px; }
+  .search-input { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar" aria-label="Application navigation">
+  <a class="sidebar-brand" href="dashboard.html">AI Analyst Weekly</a>
+  <div class="sidebar-nav">
+    <a class="sidebar-item" href="dashboard.html">⬚ Dashboard</a>
+    <a class="sidebar-item active" href="analyze.html">◷ Analyze</a>
+    <a class="sidebar-item" href="watchlist.html">◈ Watchlist</a>
+    <a class="sidebar-item" href="portfolio.html">▭ Portfolio</a>
+    <div class="sidebar-divider"></div>
+    <a class="sidebar-item" href="journal.html">≡ Journal</a>
+    <a class="sidebar-item" href="settings.html">⚙ Settings</a>
+  </div>
+  <div class="sidebar-user">
+    <div class="avatar" id="user-avatar">V</div>
+    <div>
+      <div class="user-name" id="user-name">Loading…</div>
+      <div class="user-plan">Pro plan · Active</div>
+    </div>
+  </div>
+</nav>
+
+<main class="main" aria-labelledby="page-heading">
+  <h1 class="page-heading" id="page-heading">Analysis History</h1>
+  <p class="page-subheading">All your on-demand and Sunday digest analyses.</p>
+
+  <div class="sample-notice" role="note">
+    Showing sample analyses — your live history appears here as you run analyses.
+  </div>
+
+  <div class="controls-row">
+    <div class="filter-bar" role="group" aria-label="Filter analyses by source">
+      <button class="filter-chip active" data-filter="all" onclick="setFilter('all', this)">All</button>
+      <button class="filter-chip" data-filter="on_demand" onclick="setFilter('on_demand', this)">On-demand</button>
+      <button class="filter-chip" data-filter="weekly_batch" onclick="setFilter('weekly_batch', this)">Sunday digest</button>
+    </div>
+    <input
+      class="search-input"
+      id="search-input"
+      type="text"
+      placeholder="Filter by ticker"
+      maxlength="8"
+      autocomplete="off"
+      aria-label="Filter by ticker symbol"
+      oninput="applyFilters()"
+    >
+  </div>
+
+  <div id="analyses-container">
+    <!-- Populated by JS -->
+  </div>
+</main>
+
+<script>
+// Auth guard
+(async function() {
+  if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return;
+  try {
+    const { createClient } = supabase;
+    const client = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = 'signin.html';
+      return;
+    }
+    const email = session.user.email || '';
+    const initials = email ? email[0].toUpperCase() : 'U';
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-name').textContent = email;
+  } catch (e) {
+    document.getElementById('user-name').textContent = 'Dev mode';
+  }
+})();
+
+const SAMPLE_ANALYSES = [
+  {
+    ticker: "NVDA",
+    source: "on_demand",
+    verdict: "BULLISH",
+    conviction_pct: 87,
+    summary: "Data center demand accelerating; H100 backlog intact; constructive technical setup",
+    date: "May 9, 2026"
+  },
+  {
+    ticker: "AAPL",
+    source: "weekly_batch",
+    verdict: "NEUTRAL",
+    conviction_pct: 54,
+    summary: "Services growth strong but iPhone cycle concerns weigh; mixed analyst views",
+    date: "May 5, 2026"
+  },
+  {
+    ticker: "MSFT",
+    source: "weekly_batch",
+    verdict: "BULLISH",
+    conviction_pct: 82,
+    summary: "Azure AI growth reaccelerating; Copilot monetization timeline improving",
+    date: "May 5, 2026"
+  },
+  {
+    ticker: "GOOGL",
+    source: "on_demand",
+    verdict: "BULLISH",
+    conviction_pct: 91,
+    summary: "Search AI resilient; Gemini B2B traction ahead of expectations",
+    date: "May 7, 2026"
+  }
+];
+
+let allData = SAMPLE_ANALYSES.slice();
+let currentFilter = 'all';
+
+function verdictClass(v) {
+  if (v === 'BULLISH') return 'bullish';
+  if (v === 'BEARISH') return 'bearish';
+  return 'neutral';
+}
+
+function sourceLabel(s) {
+  return s === 'on_demand' ? 'ON-DEMAND' : 'SUNDAY DIGEST';
+}
+
+function sourceBadgeClass(s) {
+  return s === 'on_demand' ? 'on-demand' : 'digest';
+}
+
+function renderList(items) {
+  const container = document.getElementById('analyses-container');
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" role="status">
+        <h2 class="empty-heading">No analyses yet</h2>
+        <p class="empty-body">Run your first analysis to see it here.</p>
+        <a class="btn-primary" href="analyze.html">Analyze a stock →</a>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="analyses-list" role="list" aria-label="Analysis history">
+      ${items.map(a => `
+        <a class="analysis-row" href="analyze.html?ticker=${encodeURIComponent(a.ticker)}" role="listitem" aria-label="${a.ticker} — ${a.verdict}, ${a.date}">
+          <span class="ar-ticker">${a.ticker}</span>
+          <div class="ar-badges">
+            <span class="badge ${sourceBadgeClass(a.source)}">${sourceLabel(a.source)}</span>
+            <span class="badge ${verdictClass(a.verdict)}">${a.verdict}</span>
+          </div>
+          <div class="ar-meta">
+            <div class="ar-summary">${a.summary}</div>
+            <div class="ar-date">${a.date}${a.conviction_pct ? ' &middot; ' + a.conviction_pct + '% conviction' : ''}</div>
+          </div>
+          <span class="ar-arrow" aria-hidden="true">›</span>
+        </a>`).join('')}
+    </div>`;
+}
+
+function applyFilters() {
+  const ticker = (document.getElementById('search-input').value || '').toUpperCase().trim();
+  let items = currentFilter === 'all' ? allData : allData.filter(a => a.source === currentFilter);
+  if (ticker) items = items.filter(a => a.ticker.includes(ticker));
+  renderList(items);
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+// Try to fetch live analyses; fall back to sample data
+async function loadAnalyses() {
+  try {
+    const apiUrl = (window.API_URL || '') + '/analyze';
+    const res = await fetch(apiUrl, { credentials: 'include' });
+    if (!res.ok) throw new Error('not ok');
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      document.querySelector('.sample-notice').style.display = 'none';
+      allData = data;
+    }
+  } catch (_) {
+    // Use sample data
+  }
+  applyFilters();
+}
+
+loadAnalyses();
+</script>
+</body>
+</html>
