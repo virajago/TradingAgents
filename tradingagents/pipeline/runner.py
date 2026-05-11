@@ -35,10 +35,10 @@ async def run_analysis(
     trade_date: str,
     *,
     # Model config — defaults match the two-tier cost strategy
-    analyst_provider: str = "google",
-    analyst_model: str = "gemini-2.5-flash",       # fast + cheap for Phase 1
-    synthesis_provider: str = "anthropic",
-    synthesis_model: str = "claude-sonnet-4-6",    # quality for Phase 2+3
+    analyst_provider: str = None,   # defaults to ANALYST_PROVIDER env var or gemini-3-flash-preview
+    analyst_model: str = None,      # defaults to ANALYST_MODEL env var
+    synthesis_provider: str = None, # defaults to SYNTHESIS_PROVIDER env var
+    synthesis_model: str = None,    # defaults to SYNTHESIS_MODEL env var
     portfolio_context: Optional[dict] = None,
     on_agent_complete: Optional[AgentCallback] = None,
     selected_analysts: tuple | list = ("market", "social", "news", "fundamentals"),
@@ -61,6 +61,12 @@ async def run_analysis(
     Returns:
         AnalysisState with all reports and final_decision populated
     """
+    from tradingagents.default_config import DEFAULT_CONFIG
+    analyst_provider = analyst_provider or DEFAULT_CONFIG["analyst_provider"]
+    analyst_model = analyst_model or DEFAULT_CONFIG["analyst_model"]
+    synthesis_provider = synthesis_provider or DEFAULT_CONFIG["synthesis_provider"]
+    synthesis_model = synthesis_model or DEFAULT_CONFIG["synthesis_model"]
+
     # Resume from checkpoint if available (crash recovery)
     if checkpoint is not None:
         prior = checkpoint.load()

@@ -26,12 +26,14 @@ DEFAULT_CONFIG = {
     "openai_reasoning_effort": None,    # "medium", "high", "low"
     "anthropic_effort": None,           # "high", "medium", "low"
     # Pipeline model config — two-tier cost strategy
+    # Override via env vars: ANALYST_PROVIDER, ANALYST_MODEL,
+    #                        SYNTHESIS_PROVIDER, SYNTHESIS_MODEL
     # Phase 1 analysts: fast + cheap model
-    "analyst_provider": "google",
-    "analyst_model": "gemini-2.5-flash",
-    # Phase 2+3 synthesis: quality model
-    "synthesis_provider": "anthropic",
-    "synthesis_model": "claude-sonnet-4-6",
+    "analyst_provider": os.getenv("ANALYST_PROVIDER", "google"),
+    "analyst_model": os.getenv("ANALYST_MODEL", "gemini-3-flash-preview"),
+    # Phase 2+3 synthesis: quality reasoning model
+    "synthesis_provider": os.getenv("SYNTHESIS_PROVIDER", "google"),
+    "synthesis_model": os.getenv("SYNTHESIS_MODEL", "gemini-3.1-pro-preview"),
     # Portfolio context: when set, agents receive position-aware instructions.
     # Shape: {TICKER: {"shares": int, "avg_cost_usd": float}}
     # Set by analysis_worker.py (SaaS path); None for CLI use.
