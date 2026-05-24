@@ -1183,8 +1183,14 @@ def run_analysis(checkpoint: bool = False):
 
             trace.append(chunk)
 
-        # Get final state and decision
-        final_state = trace[-1]
+        # Streamed chunks are per-node deltas, not full state. Merge them
+        # so every report field populated across the run is present.
+        # Without this merge, only the final node's contribution survives
+        # and saved reports lose every section except the final decision.
+        # Upstream fix: TauricResearch/TradingAgents@c405867 (#719 #736).
+        final_state = {}
+        for chunk in trace:
+            final_state.update(chunk)
         decision = graph.process_signal(final_state["final_trade_decision"])
 
         # Update all agent statuses to completed
