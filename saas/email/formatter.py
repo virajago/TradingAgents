@@ -277,7 +277,7 @@ def format_digest_email(
               <tr>
                 <td>
                   <p style="margin:0;font-size:13px;font-weight:600;letter-spacing:1px;
-                             color:#9ca3af;text-transform:uppercase;">AI Analyst Weekly</p>
+                             color:#9ca3af;text-transform:uppercase;">Conviction</p>
                   <h1 style="margin:6px 0 0;font-size:22px;font-weight:700;color:#ffffff;
                               letter-spacing:-0.5px;">Your Weekly Report</h1>
                   <p style="margin:4px 0 0;font-size:14px;color:#6b7280;">{_esc(display_date)}</p>
@@ -339,7 +339,7 @@ def format_digest_email(
         <tr>
           <td style="background-color:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
-              AI Analyst Weekly · {_esc(user_email)}<br>
+              Conviction · {_esc(user_email)}<br>
               Analysis is for informational purposes only and does not constitute
               financial advice.<br>
               <a href="{_BASE_URL}/settings/notifications"

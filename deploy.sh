@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy.sh — provision and deploy AI Analyst Weekly on GCP + Supabase
+# deploy.sh — provision and deploy Conviction on GCP + Supabase
 #
 # Run once to set everything up. Safe to re-run — all steps are idempotent.
 # Usage: ./deploy.sh
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 # ── Config ────────────────────────────────────────────────────────────────────
-APP_NAME="ai-analyst-weekly"
+APP_NAME="conviction"
 REGION="us-east1"
 ENV_FILE="${1:-.env.production}"    # pass a different file as first arg if needed
 
@@ -25,7 +25,7 @@ fail() { echo -e "${RED}✗${NC} $*"; exit 1; }
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 echo ""
-echo "AI Analyst Weekly — GCP deployment"
+echo "Conviction — GCP deployment"
 echo "==================================="
 echo ""
 

@@ -79,7 +79,7 @@ async def send_alert_email(to_email: str, ticker: str, move_pct: float, analysis
         <tr>
           <td style="background-color:#111827;padding:24px 28px;">
             <p style="margin:0;font-size:12px;font-weight:600;letter-spacing:1px;
-                       color:#9ca3af;text-transform:uppercase;">AI Analyst Weekly</p>
+                       color:#9ca3af;text-transform:uppercase;">Conviction</p>
             <h1 style="margin:6px 0 0;font-size:18px;font-weight:700;color:#ffffff;">
               Red Flag Alert
             </h1>
@@ -138,7 +138,7 @@ async def send_alert_email(to_email: str, ticker: str, move_pct: float, analysis
           <td style="background-color:#f9fafb;padding:16px 28px;
                      border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
-              AI Analyst Weekly · {to_email}<br>
+              Conviction · {to_email}<br>
               This is an automated alert based on intraday price data.
               Not financial advice.<br>
               <a href="https://aianalystweekly.com/settings/notifications"
