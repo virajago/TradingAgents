@@ -1,5 +1,9 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from tradingagents.agents.utils.agent_utils import build_instrument_context, get_language_instruction, get_news
+from tradingagents.agents.utils.sentiment_data_tools import (
+    get_stocktwits_messages,
+    get_reddit_posts,
+)
 from tradingagents.dataflows.config import get_config
 
 
@@ -10,10 +14,29 @@ def create_social_media_analyst(llm):
 
         tools = [
             get_news,
+            get_stocktwits_messages,
+            get_reddit_posts,
         ]
 
         system_message = (
-            "You are a social media and company specific news researcher/analyst tasked with analyzing social media posts, recent company news, and public sentiment for a specific company over the past week. You will be given a company's name your objective is to write a comprehensive long report detailing your analysis, insights, and implications for traders and investors on this company's current state after looking at social media and what people are saying about that company, analyzing sentiment data of what people feel each day about the company, and looking at recent company news. Use the get_news(query, start_date, end_date) tool to search for company-specific news and social media discussions. Try to look at all sources possible from social media to sentiment to news. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
+            "You are a sentiment and social-media analyst tasked with assessing retail "
+            "investor sentiment, social-media discussion, and public perception of a "
+            "specific company over the past week. Your objective is to write a "
+            "comprehensive report with concrete signal-vs-noise reasoning that helps "
+            "traders interpret what the crowd is saying.\n\n"
+            "You have three data sources — use them complementarily, not redundantly:\n"
+            "  • get_stocktwits_messages(ticker) — recent StockTwits messages with "
+            "user-labeled Bullish/Bearish sentiment. Best for raw retail positioning "
+            "and tone of conviction.\n"
+            "  • get_reddit_posts(ticker) — recent discussion across r/wallstreetbets, "
+            "r/stocks, r/investing. Best for narrative themes, due diligence threads, "
+            "and identifying viral catalysts.\n"
+            "  • get_news(ticker, start_date, end_date) — formal news coverage. Best "
+            "for grounding social sentiment in actual events.\n\n"
+            "Synthesize across sources: where do retail traders and the news agree or "
+            "disagree? Are bullish/bearish StockTwits ratios consistent with Reddit "
+            "narrative? Highlight any sentiment-vs-fundamentals divergence as a key "
+            "signal. Provide specific, actionable insights with supporting evidence."
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + get_language_instruction()
         )
