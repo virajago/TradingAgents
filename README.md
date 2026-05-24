@@ -1,4 +1,4 @@
-# AI Analyst Weekly
+# Conviction
 
 Hedge-fund-quality stock research, delivered weekly. Built on the TradingAgents multi-agent LLM framework.
 
@@ -10,7 +10,7 @@ Hedge-fund-quality stock research, delivered weekly. Built on the TradingAgents 
 
 ---
 
-## AI Analyst Weekly — SaaS Product
+## Conviction — SaaS Product
 
 A production SaaS built on the TradingAgents engine. Delivers hedge-fund-quality stock research to retail investors via weekly email digests, on-demand analysis, and real-time red flag alerts.
 
@@ -49,7 +49,7 @@ LiteLLM               — provider-agnostic LLM routing (Claude, Gemini, GPT-4o,
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/virajago/TradingAgents.git
+git clone https://github.com/virajago/conviction.git
 cd TradingAgents
 
 # Create and activate virtual environment
@@ -250,10 +250,10 @@ Connect your GitHub repo in [GCP Cloud Build → Triggers](https://console.cloud
 
 ```bash
 # View live logs
-gcloud run logs tail ai-analyst-weekly --region=us-east1
+gcloud run logs tail conviction --region=us-east1
 
 # Check service status
-gcloud run services describe ai-analyst-weekly --region=us-east1
+gcloud run services describe conviction --region=us-east1
 
 # Trigger batch manually
 curl -X POST https://<your-url>/internal/batch/run \
@@ -272,7 +272,7 @@ curl https://<your-url>/health
 **With uv (recommended):**
 
 ```bash
-git clone https://github.com/virajago/TradingAgents.git
+git clone https://github.com/virajago/conviction.git
 cd TradingAgents
 
 uv venv --python 3.11
@@ -283,7 +283,7 @@ uv pip install .
 **With conda:**
 
 ```bash
-git clone https://github.com/virajago/TradingAgents.git
+git clone https://github.com/virajago/conviction.git
 cd TradingAgents
 
 conda create -n tradingagents python=3.11

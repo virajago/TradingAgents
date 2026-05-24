@@ -27,7 +27,7 @@ def require_playwright():
 def test_landing_page_loads(page: Page, base_url: str):
     """Landing page must load with the correct title."""
     page.goto(base_url)
-    expect(page).to_have_title(lambda t: "AI Analyst Weekly" in t)
+    expect(page).to_have_title(lambda t: "Conviction" in t)
     # Hero headline must be visible
     expect(page.locator("h1")).to_be_visible()
 

@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AI Analyst Weekly API",
+    title="Conviction API",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs" if settings.environment == "development" else None,
